@@ -12,6 +12,8 @@ export const Route = createFileRoute("/_authenticated/studio")({
       { name: "description", content: "Capture or upload a photo and transform it with AI effects." },
       { property: "og:title", content: "Studio — ZUIT AI" },
       { property: "og:description", content: "Capture or upload a photo and transform it with AI effects." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Studio,
@@ -268,7 +270,7 @@ function Studio() {
                 </button>
               ))}
             </div>
-            {character && <p className="mt-2 text-xs text-muted-foreground">{character.description} · <span className="capitalize">{character.consent_type}</span> character</p>}
+            {character && <p className="mt-2 text-xs text-muted-foreground">{character.description} · <span className="capitalize">{character.consent_type.replaceAll("_", " ")}</span></p>}
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selfie pose</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {poses.map((pose) => (

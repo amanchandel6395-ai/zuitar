@@ -3,4 +3,4 @@
 - [x] Add admin-controlled AI person pose catalog
 - [x] Add pose and style controls for camera and upload
 - [x] Resolve person, pose, and style prompts server-side
-- [ ] Verify build, database access, and signed-in Studio flow
+- [x] Verify build, database access, and signed-in Studio flow

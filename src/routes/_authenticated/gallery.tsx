@@ -10,6 +10,8 @@ export const Route = createFileRoute("/_authenticated/gallery")({
       { name: "description", content: "All your saved ZUIT AI creations in one place." },
       { property: "og:title", content: "Gallery — ZUIT AI" },
       { property: "og:description", content: "All your saved ZUIT AI creations in one place." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Gallery,
