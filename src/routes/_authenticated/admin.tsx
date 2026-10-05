@@ -82,7 +82,7 @@ function Admin() {
         <Link to="/studio" className="btn-neon mt-6 inline-flex">Back to Studio</Link>
       </main>
     );
-  const t = TABS[tab];
+  const t = TABS[tab]!;
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="font-display text-4xl font-extrabold">Admin panel</h1>
