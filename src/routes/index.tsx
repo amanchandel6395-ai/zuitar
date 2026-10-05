@@ -9,6 +9,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Snap or upload a photo and transform it with AI backgrounds, styles and characters." },
       { property: "og:title", content: "ZUIT AI — AI Camera & Photo Magic" },
       { property: "og:description", content: "Snap or upload a photo and transform it with AI backgrounds, styles and characters." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,

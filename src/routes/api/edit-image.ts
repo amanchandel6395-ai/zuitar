@@ -37,6 +37,15 @@ export const Route = createFileRoute("/api/edit-image")({
         const characterId = form.get("character_id");
         let characterFile: File | null = null;
         if (typeof characterId === "string" && characterId) {
+          const poseId = form.get("pose_id");
+          if (typeof poseId !== "string" || !poseId) return new Response("Choose a selfie pose", { status: 400 });
+          const { data: pose } = await supabase
+            .from("ai_person_poses")
+            .select("prompt")
+            .eq("id", poseId)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (!pose) return new Response("Pose not found", { status: 404 });
           const { data: ch } = await supabase
             .from("ai_characters")
             .select("prompt,image_url")
@@ -53,7 +62,7 @@ export const Route = createFileRoute("/api/edit-image")({
             front: "standing slightly in FRONT and to the side of the person",
           };
           const pos = positions[String(form.get("position") ?? "right")] ?? positions["right"];
-          const base = `Add ${ch.prompt} from the second image into the first photo, ${pos}, posing together naturally like friends in one real photograph. Match the scene's lighting, perspective, scale, color grading and add realistic shadows. Keep the original person, their face, pose and the background exactly unchanged.`;
+          const base = `Create an obviously AI-generated commemorative photo by adding ${ch.prompt} from the second image into the first photo, ${pos}. ${pose.prompt} Make the interaction visually convincing while preserving the customer from the first photo. Match the scene's lighting, perspective, scale, color grading and add realistic shadows. Do not imply that this depicts a real event.`;
           prompt = prompt ? `${base} Additionally: ${prompt}` : base;
         }
         if (!prompt) return new Response("Choose an effect or describe a change", { status: 400 });
