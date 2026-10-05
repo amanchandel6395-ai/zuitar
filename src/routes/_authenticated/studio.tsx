@@ -96,7 +96,7 @@ function Studio() {
 
   const apply = async () => {
     if (!source) return;
-    if (!effectId && !custom.trim()) return toast.error("Pick an effect or describe a change");
+    if (!effectId && !custom.trim()) { toast.error("Pick an effect or describe a change"); return; }
     setBusy(true);
     setResult(null);
     setIsFinal(false);
@@ -134,7 +134,7 @@ function Studio() {
     const blob = await (await fetch(result)).blob();
     const path = `${u.user.id}/${crypto.randomUUID()}.png`;
     const up = await supabase.storage.from("creations").upload(path, blob, { contentType: "image/png" });
-    if (up.error) return toast.error("Could not save");
+    if (up.error) { toast.error("Could not save"); return; }
     const effect = effects.find((e) => e.id === effectId);
     await supabase.from("creations").insert({ user_id: u.user.id, image_path: path, effect_name: effect?.name ?? "Custom", prompt: custom || null });
     qc.invalidateQueries({ queryKey: ["creations"] });
