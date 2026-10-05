@@ -18,6 +18,13 @@ export const Route = createFileRoute("/_authenticated/studio")({
 });
 
 type Effect = { id: string; name: string; category: string; emoji: string };
+type Character = { id: string; name: string; description: string | null; image_url: string; consent_type: string };
+const POSITIONS = [
+  { id: "left", label: "Left" },
+  { id: "right", label: "Right" },
+  { id: "behind", label: "Behind" },
+  { id: "front", label: "Front-side" },
+] as const;
 
 function Studio() {
   const qc = useQueryClient();
@@ -33,6 +40,24 @@ function Studio() {
   const [effectId, setEffectId] = useState<string | null>(null);
   const [custom, setCustom] = useState("");
   const [category, setCategory] = useState("all");
+  const [mode, setMode] = useState<"effects" | "person">("effects");
+  const [characterId, setCharacterId] = useState<string | null>(null);
+  const [position, setPosition] = useState<string>("right");
+  const [scale, setScale] = useState(85);
+
+  const { data: characters = [] } = useQuery({
+    queryKey: ["ai_characters"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_characters")
+        .select("id,name,description,image_url,consent_type")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data as Character[];
+    },
+  });
+  const character = mode === "person" ? characters.find((c) => c.id === characterId) : undefined;
 
   const { data: effects = [] } = useQuery({
     queryKey: ["effects"],
@@ -96,7 +121,9 @@ function Studio() {
 
   const apply = async () => {
     if (!source) return;
-    if (!effectId && !custom.trim()) { toast.error("Pick an effect or describe a change"); return; }
+    const useEffectId = mode === "effects" ? effectId : null;
+    if (mode === "person" && !character) { toast.error("Pick an AI person first"); return; }
+    if (!useEffectId && !character && !custom.trim()) { toast.error("Pick an effect or describe a change"); return; }
     setBusy(true);
     setResult(null);
     setIsFinal(false);
@@ -104,7 +131,11 @@ function Studio() {
       const { data } = await supabase.auth.getSession();
       const form = new FormData();
       form.append("image", new File([source], "photo.png", { type: source.type || "image/png" }));
-      if (effectId) form.append("effect_id", effectId);
+      if (useEffectId) form.append("effect_id", useEffectId);
+      if (character) {
+        form.append("character_id", character.id);
+        form.append("position", position);
+      }
       if (custom.trim()) form.append("custom_prompt", custom.trim());
       await streamImage(
         "/api/edit-image",
@@ -135,8 +166,9 @@ function Studio() {
     const path = `${u.user.id}/${crypto.randomUUID()}.png`;
     const up = await supabase.storage.from("creations").upload(path, blob, { contentType: "image/png" });
     if (up.error) { toast.error("Could not save"); return; }
-    const effect = effects.find((e) => e.id === effectId);
-    await supabase.from("creations").insert({ user_id: u.user.id, image_path: path, effect_name: effect?.name ?? "Custom", prompt: custom || null });
+    const effect = mode === "effects" ? effects.find((e) => e.id === effectId) : undefined;
+    const label = character ? `With ${character.name}` : effect?.name ?? "Custom";
+    await supabase.from("creations").insert({ user_id: u.user.id, image_path: path, effect_name: label, prompt: custom || null });
     qc.invalidateQueries({ queryKey: ["creations"] });
     toast.success("Saved to your gallery");
   };
@@ -156,6 +188,23 @@ function Studio() {
               <p className="font-display text-2xl font-bold">Ready when you are</p>
               <p className="mt-1 text-sm text-muted-foreground">Open the camera or upload a photo.</p>
             </div>
+          )}
+          {character && !result && (cameraOn || sourceUrl) && (
+            <img
+              src={character.image_url}
+              alt={`${character.name} preview`}
+              className="pointer-events-none absolute bottom-0 drop-shadow-2xl transition-all duration-300"
+              style={{
+                height: `${position === "behind" ? scale * 0.8 : scale}%`,
+                opacity: position === "behind" ? 0.75 : 0.95,
+                ...(position === "left" ? { left: "4%" } : position === "behind" ? { left: "50%", transform: "translateX(-10%)", zIndex: 0 } : position === "front" ? { right: "18%" } : { right: "4%" }),
+              }}
+            />
+          )}
+          {(cameraOn || sourceUrl) && (character || result) && (
+            <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${result && isFinal ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>
+              {result && isFinal ? "AI generated final photo" : result ? "Generating…" : "Live AR preview"}
+            </span>
           )}
           {busy && <div className="scanline pointer-events-none absolute inset-0" />}
         </div>
@@ -185,8 +234,34 @@ function Studio() {
       </section>
 
       <aside className="glass flex flex-col rounded-3xl p-5">
-        <h2 className="font-display text-lg font-bold">Effects</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-secondary p-1">
+          <button onClick={() => setMode("effects")} className={`rounded-full py-2 text-sm font-semibold ${mode === "effects" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Effects</button>
+          <button onClick={() => setMode("person")} className={`rounded-full py-2 text-sm font-semibold ${mode === "person" ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}>AI Person</button>
+        </div>
+        {mode === "person" ? (
+          <>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {characters.map((c) => (
+                <button key={c.id} onClick={() => setCharacterId(characterId === c.id ? null : c.id)} className={`effect-card items-center ${characterId === c.id ? "effect-card-active" : ""}`}>
+                  <img src={c.image_url} alt={c.name} loading="lazy" className="h-20 w-full object-contain" />
+                  <span className="text-xs font-medium">{c.name}</span>
+                </button>
+              ))}
+            </div>
+            {character && <p className="mt-2 text-xs text-muted-foreground">{character.description} · <span className="capitalize">{character.consent_type}</span> character</p>}
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Position</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {POSITIONS.map((p) => (
+                <button key={p.id} onClick={() => setPosition(p.id)} className={`chip ${position === p.id ? "chip-active" : ""}`}>{p.label}</button>
+              ))}
+            </div>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview size</p>
+            <input type="range" min={40} max={100} value={scale} onChange={(e) => setScale(Number(e.target.value))} className="mt-2 w-full accent-[var(--accent)]" />
+            <p className="mt-3 text-xs text-muted-foreground">The live preview is a guide. The final photo is generated by AI after you capture.</p>
+          </>
+        ) : (
+        <>
+        <div className="mt-4 flex flex-wrap gap-2">
           {categories.map((c) => (
             <button key={c} onClick={() => setCategory(c)} className={`chip ${category === c ? "chip-active" : ""}`}>{c}</button>
           ))}
@@ -199,9 +274,11 @@ function Studio() {
             </button>
           ))}
         </div>
+        </>
+        )}
         <textarea className="field mt-4 min-h-20 resize-none" placeholder="Or describe your own change… e.g. add a cat on my shoulder" value={custom} onChange={(e) => setCustom(e.target.value)} />
         <button disabled={!source || busy} onClick={apply} className="btn-neon mt-4 w-full">
-          {busy ? "Transforming…" : "Transform with AI"}
+          {busy ? "Transforming…" : mode === "person" ? "Generate final photo" : "Transform with AI"}
         </button>
         {!source && <p className="mt-2 text-center text-xs text-muted-foreground">Take or upload a photo first.</p>}
       </aside>
