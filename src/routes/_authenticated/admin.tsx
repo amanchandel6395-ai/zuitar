@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -104,7 +105,7 @@ function TableEditor({ table, fields }: { table: TableName; fields: Field[] }) {
     queryFn: async () => {
       const { data, error } = await supabase.from(table).select("*").order("sort_order");
       if (error) throw error;
-      return data as Record<string, unknown>[];
+      return data as any[];
     },
   });
   const refresh = () => {
@@ -116,29 +117,29 @@ function TableEditor({ table, fields }: { table: TableName; fields: Field[] }) {
     <div className="mt-6 space-y-4">
       <RowForm fields={fields} initial={empty} submitLabel="Add new" onSave={async (v) => {
         const { error } = await supabase.from(table).insert(v as never);
-        if (error) return toast.error(error.message);
+        if (error) { toast.error(error.message); return; }
         toast.success("Added");
         refresh();
         return true;
       }} />
-      {data.map((row) => (
+      {data.map((row: any) => (
         <RowForm key={row.id as string} fields={fields} initial={row} submitLabel="Save"
           active={row.is_active as boolean}
           onToggle={async () => {
             const { error } = await supabase.from(table).update({ is_active: !row.is_active } as never).eq("id", row.id as string);
-            if (error) return toast.error(error.message);
+            if (error) { toast.error(error.message); return; }
             refresh();
           }}
           onDelete={async () => {
             if (!confirm(`Delete "${row.name}"?`)) return;
             const { error } = await supabase.from(table).delete().eq("id", row.id as string);
-            if (error) return toast.error(error.message);
+            if (error) { toast.error(error.message); return; }
             toast.success("Deleted");
             refresh();
           }}
           onSave={async (v) => {
             const { error } = await supabase.from(table).update(v as never).eq("id", row.id as string);
-            if (error) return toast.error(error.message);
+            if (error) { toast.error(error.message); return; }
             toast.success("Saved");
             refresh();
           }} />
