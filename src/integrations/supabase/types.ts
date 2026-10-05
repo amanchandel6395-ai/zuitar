@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_characters: {
+        Row: {
+          consent_type: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string
+          is_active: boolean
+          name: string
+          prompt: string
+          sort_order: number
+        }
+        Insert: {
+          consent_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url: string
+          is_active?: boolean
+          name: string
+          prompt: string
+          sort_order?: number
+        }
+        Update: {
+          consent_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string
+          is_active?: boolean
+          name?: string
+          prompt?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       creations: {
         Row: {
           created_at: string
