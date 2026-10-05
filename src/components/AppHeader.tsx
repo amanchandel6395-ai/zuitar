@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/routes/_authenticated/admin";
 
 export function Logo() {
   return (
@@ -13,6 +14,7 @@ export function Logo() {
 export function AppHeader() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { data: isAdmin } = useIsAdmin();
   const signOut = async () => {
     await qc.cancelQueries();
     qc.clear();
@@ -31,6 +33,11 @@ export function AppHeader() {
           <Link to="/gallery" className={link} activeProps={{ className: "bg-secondary text-foreground" }}>
             Gallery
           </Link>
+          {isAdmin && (
+            <Link to="/admin" className={link} activeProps={{ className: "bg-secondary text-foreground" }}>
+              Admin
+            </Link>
+          )}
           <button onClick={signOut} className={link}>
             Sign out
           </button>
