@@ -50,6 +50,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_person_poses: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          is_active: boolean
+          name: string
+          prompt: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          prompt: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          prompt?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       creations: {
         Row: {
           created_at: string
