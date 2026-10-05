@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/edit-image")({
             behind: "standing slightly BEHIND the person, partially visible over their shoulder",
             front: "standing slightly in FRONT and to the side of the person",
           };
-          const pos = positions[String(form.get("position") ?? "right")] ?? positions.right;
+          const pos = positions[String(form.get("position") ?? "right")] ?? positions["right"];
           const base = `Add ${ch.prompt} from the second image into the first photo, ${pos}, posing together naturally like friends in one real photograph. Match the scene's lighting, perspective, scale, color grading and add realistic shadows. Keep the original person, their face, pose and the background exactly unchanged.`;
           prompt = prompt ? `${base} Additionally: ${prompt}` : base;
         }

@@ -278,7 +278,7 @@ function Studio() {
         )}
         <textarea className="field mt-4 min-h-20 resize-none" placeholder="Or describe your own change… e.g. add a cat on my shoulder" value={custom} onChange={(e) => setCustom(e.target.value)} />
         <button disabled={!source || busy} onClick={apply} className="btn-neon mt-4 w-full">
-          {busy ? "Transforming…" : "Transform with AI"}
+          {busy ? "Transforming…" : mode === "person" ? "Generate final photo" : "Transform with AI"}
         </button>
         {!source && <p className="mt-2 text-center text-xs text-muted-foreground">Take or upload a photo first.</p>}
       </aside>
