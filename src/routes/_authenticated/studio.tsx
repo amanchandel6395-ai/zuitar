@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/studio")({
 
 type Effect = { id: string; name: string; category: string; emoji: string };
 type Character = { id: string; name: string; description: string | null; image_url: string; consent_type: string };
+type PersonPose = { id: string; name: string; emoji: string };
 const POSITIONS = [
   { id: "left", label: "Left" },
   { id: "right", label: "Right" },
@@ -42,6 +43,8 @@ function Studio() {
   const [category, setCategory] = useState("all");
   const [mode, setMode] = useState<"effects" | "person">("effects");
   const [characterId, setCharacterId] = useState<string | null>(null);
+  const [poseId, setPoseId] = useState<string | null>(null);
+  const [personStyleId, setPersonStyleId] = useState<string | null>(null);
   const [position, setPosition] = useState<string>("right");
   const [scale, setScale] = useState(85);
 
@@ -58,6 +61,20 @@ function Studio() {
     },
   });
   const character = mode === "person" ? characters.find((c) => c.id === characterId) : undefined;
+
+  const { data: poses = [] } = useQuery({
+    queryKey: ["ai_person_poses"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_person_poses")
+        .select("id,name,emoji")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data as PersonPose[];
+    },
+  });
+  const selectedPose = poses.find((pose) => pose.id === poseId);
 
   const { data: effects = [] } = useQuery({
     queryKey: ["effects"],
@@ -109,7 +126,8 @@ function Studio() {
     const c = document.createElement("canvas");
     c.width = v.videoWidth;
     c.height = v.videoHeight;
-    const ctx = c.getContext("2d")!;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
     if (facing === "user") {
       ctx.translate(c.width, 0);
       ctx.scale(-1, 1);
@@ -121,8 +139,9 @@ function Studio() {
 
   const apply = async () => {
     if (!source) return;
-    const useEffectId = mode === "effects" ? effectId : null;
+    const useEffectId = mode === "effects" ? effectId : personStyleId;
     if (mode === "person" && !character) { toast.error("Pick an AI person first"); return; }
+    if (mode === "person" && !selectedPose) { toast.error("Pick a selfie pose"); return; }
     if (!useEffectId && !character && !custom.trim()) { toast.error("Pick an effect or describe a change"); return; }
     setBusy(true);
     setResult(null);
@@ -134,6 +153,7 @@ function Studio() {
       if (useEffectId) form.append("effect_id", useEffectId);
       if (character) {
         form.append("character_id", character.id);
+        if (selectedPose) form.append("pose_id", selectedPose.id);
         form.append("position", position);
       }
       if (custom.trim()) form.append("custom_prompt", custom.trim());
@@ -166,8 +186,8 @@ function Studio() {
     const path = `${u.user.id}/${crypto.randomUUID()}.png`;
     const up = await supabase.storage.from("creations").upload(path, blob, { contentType: "image/png" });
     if (up.error) { toast.error("Could not save"); return; }
-    const effect = mode === "effects" ? effects.find((e) => e.id === effectId) : undefined;
-    const label = character ? `With ${character.name}` : effect?.name ?? "Custom";
+    const effect = effects.find((e) => e.id === (mode === "effects" ? effectId : personStyleId));
+    const label = character ? `With ${character.name} · ${selectedPose?.name ?? "AI selfie"}${effect ? ` · ${effect.name}` : ""}` : effect?.name ?? "Custom";
     await supabase.from("creations").insert({ user_id: u.user.id, image_path: path, effect_name: label, prompt: custom || null });
     qc.invalidateQueries({ queryKey: ["creations"] });
     toast.success("Saved to your gallery");
@@ -249,6 +269,15 @@ function Studio() {
               ))}
             </div>
             {character && <p className="mt-2 text-xs text-muted-foreground">{character.description} · <span className="capitalize">{character.consent_type}</span> character</p>}
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selfie pose</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {poses.map((pose) => (
+                <button key={pose.id} onClick={() => setPoseId(pose.id)} className={`effect-card ${poseId === pose.id ? "effect-card-active" : ""}`}>
+                  <span className="text-xl">{pose.emoji}</span>
+                  <span className="text-xs font-medium">{pose.name}</span>
+                </button>
+              ))}
+            </div>
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Position</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {POSITIONS.map((p) => (
@@ -257,7 +286,12 @@ function Studio() {
             </div>
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview size</p>
             <input type="range" min={40} max={100} value={scale} onChange={(e) => setScale(Number(e.target.value))} className="mt-2 w-full accent-[var(--accent)]" />
-            <p className="mt-3 text-xs text-muted-foreground">The live preview is a guide. The final photo is generated by AI after you capture.</p>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Photo style</p>
+            <select className="field mt-2" value={personStyleId ?? ""} onChange={(e) => setPersonStyleId(e.target.value || null)}>
+              <option value="">Natural photo</option>
+              {effects.map((effect) => <option key={effect.id} value={effect.id}>{effect.emoji} {effect.name}</option>)}
+            </select>
+            <p className="mt-3 text-xs text-muted-foreground">The camera overlay guides placement only. The selected pose and style are created in the AI-generated final photo after capture.</p>
           </>
         ) : (
         <>
