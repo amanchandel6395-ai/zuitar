@@ -33,11 +33,38 @@ export const Route = createFileRoute("/api/edit-image")({
           if (!effect) return new Response("Effect not found", { status: 404 });
           prompt = prompt ? `${effect.prompt} Additionally: ${prompt}` : effect.prompt;
         }
+        const out = new FormData();
+        const characterId = form.get("character_id");
+        let characterFile: File | null = null;
+        if (typeof characterId === "string" && characterId) {
+          const { data: ch } = await supabase
+            .from("ai_characters")
+            .select("prompt,image_url")
+            .eq("id", characterId)
+            .maybeSingle();
+          if (!ch) return new Response("Character not found", { status: 404 });
+          const imgRes = await fetch(new URL(ch.image_url, request.url));
+          if (!imgRes.ok) return new Response("Character image unavailable", { status: 502 });
+          characterFile = new File([await imgRes.arrayBuffer()], "character.png", { type: "image/png" });
+          const positions: Record<string, string> = {
+            left: "standing to the LEFT of the person (viewer's left)",
+            right: "standing to the RIGHT of the person (viewer's right)",
+            behind: "standing slightly BEHIND the person, partially visible over their shoulder",
+            front: "standing slightly in FRONT and to the side of the person",
+          };
+          const pos = positions[String(form.get("position") ?? "right")] ?? positions.right;
+          const base = `Add ${ch.prompt} from the second image into the first photo, ${pos}, posing together naturally like friends in one real photograph. Match the scene's lighting, perspective, scale, color grading and add realistic shadows. Keep the original person, their face, pose and the background exactly unchanged.`;
+          prompt = prompt ? `${base} Additionally: ${prompt}` : base;
+        }
         if (!prompt) return new Response("Choose an effect or describe a change", { status: 400 });
         if (!(form.get("image") instanceof File)) return new Response("Missing photo", { status: 400 });
 
-        const out = new FormData();
-        out.set("image", form.get("image") as File);
+        if (characterFile) {
+          out.append("image[]", form.get("image") as File);
+          out.append("image[]", characterFile);
+        } else {
+          out.set("image", form.get("image") as File);
+        }
         out.set("prompt", prompt);
         const stream = form.get("stream");
         if (typeof stream === "string") out.set("stream", stream);
