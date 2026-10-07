@@ -6,15 +6,10 @@ export const Route = createFileRoute("/api/edit-image")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-        if (!token) return new Response("Please sign in", { status: 401 });
-
+        // Public MVP (no accounts): only admin-controlled, active rows are readable via anon RLS.
         const supabase = createClient(process.env["SUPABASE_URL"]!, process.env["SUPABASE_PUBLISHABLE_KEY"]!, {
-          global: { headers: { Authorization: `Bearer ${token}` } },
           auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
         });
-        const { data: userData, error: userError } = await supabase.auth.getUser(token);
-        if (userError || !userData.user) return new Response("Please sign in", { status: 401 });
 
         const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) return new Response("AI is not configured", { status: 500 });
@@ -22,7 +17,7 @@ export const Route = createFileRoute("/api/edit-image")({
         const form = await request.formData();
         const effectId = form.get("effect_id");
         const custom = form.get("custom_prompt");
-        let prompt = typeof custom === "string" ? custom.trim() : "";
+        let prompt = ""; void custom; // public MVP: only DB-controlled prompts
 
         if (typeof effectId === "string" && effectId) {
           const { data: effect } = await supabase
