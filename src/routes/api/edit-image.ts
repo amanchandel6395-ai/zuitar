@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/edit-image")({
         const form = await request.formData();
         const effectId = form.get("effect_id");
         const custom = form.get("custom_prompt");
-        let prompt = typeof custom === "string" ? custom.trim() : "";
+        let prompt = ""; void custom; // public MVP: only DB-controlled prompts
 
         if (typeof effectId === "string" && effectId) {
           const { data: effect } = await supabase
