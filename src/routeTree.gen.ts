@@ -16,6 +16,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedGalleryRouteImport } from './routes/_authenticated/gallery'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as ApiEditImageRouteImport } from './routes/api/edit-image'
+import { Route as SelfieKindRouteImport } from './routes/selfie.$kind'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -51,6 +52,11 @@ const ApiEditImageRoute = ApiEditImageRouteImport.update({
   path: '/api/edit-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SelfieKindRoute = SelfieKindRouteImport.update({
+  id: '/selfie/$kind',
+  path: '/selfie/$kind',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/gallery': typeof AuthenticatedGalleryRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/edit-image': typeof ApiEditImageRoute
+  '/selfie/$kind': typeof SelfieKindRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/gallery': typeof AuthenticatedGalleryRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/edit-image': typeof ApiEditImageRoute
+  '/selfie/$kind': typeof SelfieKindRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,13 +85,27 @@ export interface FileRoutesById {
   '/_authenticated/gallery': typeof AuthenticatedGalleryRoute
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/api/edit-image': typeof ApiEditImageRoute
+  '/selfie/$kind': typeof SelfieKindRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/admin' | '/gallery' | '/studio' | '/api/edit-image'
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/gallery'
+    | '/studio'
+    | '/api/edit-image'
+    | '/selfie/$kind'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/admin' | '/gallery' | '/studio' | '/api/edit-image'
+  to:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/gallery'
+    | '/studio'
+    | '/api/edit-image'
+    | '/selfie/$kind'
   id:
     | '__root__'
     | '/'
@@ -93,6 +115,7 @@ export interface FileRouteTypes {
     | '/_authenticated/gallery'
     | '/_authenticated/studio'
     | '/api/edit-image'
+    | '/selfie/$kind'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -100,6 +123,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiEditImageRoute: typeof ApiEditImageRoute
+  SelfieKindRoute: typeof SelfieKindRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -153,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEditImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/selfie/$kind': {
+      id: '/selfie/$kind'
+      path: '/selfie/$kind'
+      fullPath: '/selfie/$kind'
+      preLoaderRoute: typeof SelfieKindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -176,6 +207,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiEditImageRoute: ApiEditImageRoute,
+  SelfieKindRoute: SelfieKindRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
