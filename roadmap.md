@@ -4,3 +4,5 @@
 - [x] Add pose and style controls for camera and upload
 - [x] Resolve person, pose, and style prompts server-side
 - [x] Verify build, database access, and signed-in Studio flow
+- [ ] Add live-camera person selection, movable overlays and instant composite capture
+- [ ] Verify signed-in camera capture and download
