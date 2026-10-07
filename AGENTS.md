@@ -13,3 +13,5 @@
 - Image edits stream through the `/api/edit-image` server route, which verifies the user's bearer token itself (server routes bypass route guards).
 - AI person poses and their generation instructions live in `ai_person_poses` and are resolved server-side so administrators control available interactions.
 - Live camera people use a draggable 2D overlay; capture keeps the original frame for AI editing and a separate composite for instant download so the AI does not duplicate the character.
+- Customer-facing app is the simplified ZUITAR MVP (home → /selfie/$kind for yogi|modi|bjp, no accounts); scenes are ai_person_poses, backgrounds are effects category 'place', BJP looks are effects category 'bjp', so admins keep control of prompts.
+- /api/edit-image is public for the no-account MVP and accepts only DB prompt IDs (custom prompts ignored) to limit abuse.
