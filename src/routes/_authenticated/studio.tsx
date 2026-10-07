@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { streamImage } from "@/lib/stream-image";
+import { Button } from "@/components/ui/button";
+import { Camera, FlipHorizontal2, RotateCcw, X } from "lucide-react";
+import { LivePersonOverlay, type OverlayPlacement } from "@/components/LivePersonOverlay";
 
 export const Route = createFileRoute("/_authenticated/studio")({
   head: () => ({
@@ -33,6 +36,11 @@ function Studio() {
   const qc = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLImageElement>(null);
+  const cameraRequest = useRef(0);
+  const photoUrlRef = useRef<string | null>(null);
+  const compositeUrlRef = useRef<string | null>(null);
   const [facing, setFacing] = useState<"user" | "environment">("user");
   const [cameraOn, setCameraOn] = useState(false);
   const [source, setSource] = useState<Blob | null>(null);
@@ -49,6 +57,21 @@ function Studio() {
   const [personStyleId, setPersonStyleId] = useState<string | null>(null);
   const [position, setPosition] = useState<string>("right");
   const [scale, setScale] = useState(85);
+  const [placement, setPlacement] = useState<OverlayPlacement>({ x: 0.73, y: 0.575, rotation: 0, flipped: false });
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+
+  const moveOverlay = (x: number, y: number) => {
+    setPlacement((p) => ({ ...p, x, y }));
+    setPosition(x < 0.5 ? "left" : "right");
+  };
+  const selectCharacter = (id: string) => {
+    setMode("person");
+    setCharacterId(id);
+    setSnapshot(null);
+    if (!poseId && poses[0]) setPoseId(poses[0].id);
+  };
 
   const { data: characters = [] } = useQuery({
     queryKey: ["ai_characters"],
@@ -93,49 +116,95 @@ function Studio() {
   const categories = ["all", ...Array.from(new Set(effects.map((e) => e.category)))];
 
   const stopCamera = () => {
+    cameraRequest.current += 1;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setCameraOn(false);
+    setCameraReady(false);
+    setCameraStarting(false);
   };
 
   const startCamera = async (mode = facing) => {
     stopCamera();
+    const request = cameraRequest.current;
+    setCameraStarting(true);
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode, width: 1280, height: 1280 } });
+      if (request !== cameraRequest.current) { s.getTracks().forEach((track) => track.stop()); return; }
       streamRef.current = s;
+      setResult(null);
+      setSnapshot(null);
       setCameraOn(true);
-      requestAnimationFrame(() => {
-        if (videoRef.current) videoRef.current.srcObject = s;
-      });
     } catch {
-      toast.error("Camera unavailable. Try uploading a photo instead.");
+      if (request === cameraRequest.current) toast.error("Camera unavailable. Allow camera access or upload a photo.");
+    } finally {
+      if (request === cameraRequest.current) setCameraStarting(false);
     }
   };
 
-  useEffect(() => () => stopCamera(), []);
+  useEffect(() => {
+    if (cameraOn && videoRef.current) videoRef.current.srcObject = streamRef.current;
+  }, [cameraOn, facing]);
+  useEffect(() => () => {
+    cameraRequest.current += 1;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current);
+    if (compositeUrlRef.current) URL.revokeObjectURL(compositeUrlRef.current);
+  }, []);
 
   const setPhoto = (blob: Blob) => {
-    if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current);
+    if (compositeUrlRef.current) URL.revokeObjectURL(compositeUrlRef.current);
+    compositeUrlRef.current = null;
+    setSnapshot(null);
     setSource(blob);
-    setSourceUrl(URL.createObjectURL(blob));
+    photoUrlRef.current = URL.createObjectURL(blob);
+    setSourceUrl(photoUrlRef.current);
     setResult(null);
     setIsFinal(false);
   };
 
-  const capture = () => {
+  const capture = async () => {
     const v = videoRef.current;
-    if (!v) return;
+    const frame = frameRef.current;
+    if (!v || !frame || !v.videoWidth || !cameraReady) return;
     const c = document.createElement("canvas");
+    const bounds = frame.getBoundingClientRect();
     c.width = v.videoWidth;
-    c.height = v.videoHeight;
+    c.height = Math.round(c.width * bounds.height / bounds.width);
     const ctx = c.getContext("2d");
     if (!ctx) return;
+    const factor = Math.max(c.width / v.videoWidth, c.height / v.videoHeight);
+    const width = v.videoWidth * factor;
+    const height = v.videoHeight * factor;
+    ctx.save();
     if (facing === "user") {
       ctx.translate(c.width, 0);
       ctx.scale(-1, 1);
     }
-    ctx.drawImage(v, 0, 0);
-    c.toBlob((b) => b && setPhoto(b), "image/png");
+    ctx.drawImage(v, (c.width - width) / 2, (c.height - height) / 2, width, height);
+    ctx.restore();
+    const original = await new Promise<Blob | null>((resolve) => c.toBlob(resolve, "image/png"));
+    if (!original) return;
+    setPhoto(original);
+    const overlay = overlayRef.current;
+    if (character && overlay?.complete && overlay.naturalWidth) {
+      try {
+        const h = c.height * scale / 100;
+        const w = h * overlay.naturalWidth / overlay.naturalHeight;
+        ctx.save();
+        ctx.translate(placement.x * c.width, placement.y * c.height);
+        ctx.rotate(placement.rotation * Math.PI / 180);
+        ctx.scale(placement.flipped ? -1 : 1, 1);
+        ctx.drawImage(overlay, -w / 2, -h / 2, w, h);
+        ctx.restore();
+        const composite = await new Promise<Blob | null>((resolve) => c.toBlob(resolve, "image/png"));
+        if (composite) {
+          compositeUrlRef.current = URL.createObjectURL(composite);
+          setSnapshot(compositeUrlRef.current);
+        }
+      } catch { toast.error("Live photo could not be captured. Your original photo is still ready for AI editing."); }
+    }
     stopCamera();
   };
 
@@ -146,6 +215,7 @@ function Studio() {
     if (mode === "person" && !selectedPose) { toast.error("Pick a selfie pose"); return; }
     if (!useEffectId && !character && !custom.trim()) { toast.error("Pick an effect or describe a change"); return; }
     setBusy(true);
+    setSnapshot(null);
     setResult(null);
     setIsFinal(false);
     try {
@@ -195,14 +265,14 @@ function Studio() {
     toast.success("Saved to your gallery");
   };
 
-  const shown = result ?? sourceUrl;
+  const shown = result ?? snapshot ?? sourceUrl;
 
   return (
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[1fr_360px]">
       <section className="glass relative overflow-hidden rounded-3xl">
-        <div className="relative flex aspect-square w-full items-center justify-center bg-background/60 md:aspect-[4/3]">
+        <div ref={frameRef} className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-background/60 md:aspect-[4/3]">
           {cameraOn ? (
-            <video ref={videoRef} autoPlay playsInline muted className={`h-full w-full object-cover ${facing === "user" ? "-scale-x-100" : ""}`} />
+            <video ref={videoRef} onLoadedData={() => setCameraReady(true)} autoPlay playsInline muted className={`h-full w-full object-cover ${facing === "user" ? "-scale-x-100" : ""}`} />
           ) : shown ? (
             <img src={shown} alt="Your photo" className={`h-full w-full object-contain transition-[filter] duration-500 ${result && !isFinal ? "blur-2xl" : "blur-0"}`} />
           ) : (
@@ -211,39 +281,37 @@ function Studio() {
               <p className="mt-1 text-sm text-muted-foreground">Open the camera or upload a photo.</p>
             </div>
           )}
-          {character && !result && (cameraOn || sourceUrl) && (
-            <img
-              src={character.image_url}
-              alt={`${character.name} preview`}
-              className="pointer-events-none absolute bottom-0 drop-shadow-2xl transition-all duration-300"
-              style={{
-                height: `${position === "behind" ? scale * 0.8 : scale}%`,
-                opacity: position === "behind" ? 0.75 : 0.95,
-                ...(position === "left" ? { left: "4%" } : position === "behind" ? { left: "50%", transform: "translateX(-10%)", zIndex: 0 } : position === "front" ? { right: "18%" } : { right: "4%" }),
-              }}
-            />
+          {character && !result && !snapshot && (cameraOn || sourceUrl) && (
+            <LivePersonOverlay imageRef={overlayRef} src={character.image_url} name={character.name} scale={scale} placement={placement} onMove={moveOverlay} />
           )}
           {(cameraOn || sourceUrl) && (character || result) && (
-            <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${result && isFinal ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>
-              {result && isFinal ? "AI generated final photo" : result ? "Generating…" : "Live AR preview"}
+            <span className={`pointer-events-none absolute left-3 top-3 z-20 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${result && isFinal ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>
+              {result && isFinal ? "AI generated final photo" : result ? "Generating…" : snapshot ? "Live overlay photo" : cameraOn ? "Live camera · 2D overlay" : "Photo · 2D overlay"}
             </span>
           )}
           {busy && <div className="scanline pointer-events-none absolute inset-0" />}
         </div>
+        {cameraOn && (
+          <div className="flex gap-3 overflow-x-auto border-t border-border p-3" aria-label="Live camera people">
+            <Button variant="outline" onClick={() => { setCharacterId(null); setMode("person"); }}>No person</Button>
+            {characters.map((c) => <Button key={c.id} variant={characterId === c.id && mode === "person" ? "default" : "secondary"} className="h-auto shrink-0 gap-2 py-2" onClick={() => selectCharacter(c.id)} aria-pressed={characterId === c.id && mode === "person"}><img src={c.image_url} alt="" className="h-12 w-9 object-contain" />{c.name}</Button>)}
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border p-4">
           {cameraOn ? (
             <>
-              <button className="btn-ghost" onClick={() => { const m = facing === "user" ? "environment" : "user"; setFacing(m); startCamera(m); }}>Flip</button>
-              <button aria-label="Take photo" onClick={capture} className="shutter" />
-              <button className="btn-ghost" onClick={stopCamera}>Close</button>
+              <Button variant="outline" size="icon" aria-label="Flip camera" title="Flip camera" onClick={() => { const m = facing === "user" ? "environment" : "user"; setFacing(m); startCamera(m); }}><FlipHorizontal2 /></Button>
+              <Button disabled={!cameraReady} aria-label="Take photo" onClick={capture} className="shutter h-18 w-18"><Camera /></Button>
+              <Button variant="outline" size="icon" aria-label="Close camera" title="Close camera" onClick={stopCamera}><X /></Button>
             </>
           ) : (
             <>
-              <button className="btn-neon" onClick={() => startCamera()}>Open camera</button>
+              <Button className="btn-neon h-auto" disabled={cameraStarting || busy} onClick={() => startCamera()}><Camera />{cameraStarting ? "Opening…" : "Open camera"}</Button>
               <label className="btn-ghost cursor-pointer">
                 Upload
                 <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && setPhoto(e.target.files[0])} />
               </label>
+              {snapshot && <Button asChild variant="outline"><a href={snapshot} download="zuit-live-selfie.png">Download live photo</a></Button>}
               {result && isFinal && (
                 <>
                   <button className="btn-ghost" onClick={save}>Save</button>
@@ -264,10 +332,10 @@ function Studio() {
           <>
             <div className="mt-4 grid grid-cols-3 gap-2">
               {characters.map((c) => (
-                <button key={c.id} onClick={() => setCharacterId(characterId === c.id ? null : c.id)} className={`effect-card items-center ${characterId === c.id ? "effect-card-active" : ""}`}>
+                <Button key={c.id} variant="secondary" onClick={() => selectCharacter(c.id)} className={`effect-card h-auto whitespace-normal items-center ${characterId === c.id ? "effect-card-active" : ""}`}>
                   <img src={c.image_url} alt={c.name} loading="lazy" className="h-20 w-full object-contain" />
                   <span className="text-xs font-medium">{c.name}</span>
-                </button>
+                </Button>
               ))}
             </div>
             {character && <p className="mt-2 text-xs text-muted-foreground">{character.description} · <span className="capitalize">{character.consent_type.replaceAll("_", " ")}</span></p>}
@@ -283,17 +351,23 @@ function Studio() {
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Position</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {POSITIONS.map((p) => (
-                <button key={p.id} onClick={() => setPosition(p.id)} className={`chip ${position === p.id ? "chip-active" : ""}`}>{p.label}</button>
+                <Button variant="ghost" size="sm" key={p.id} onClick={() => { setPosition(p.id); setSnapshot(null); setPlacement((v) => ({ ...v, x: p.id === "left" ? 0.27 : p.id === "behind" ? 0.55 : p.id === "front" ? 0.6 : 0.73 })); }} className={`chip ${position === p.id ? "chip-active" : ""}`}>{p.label}</Button>
               ))}
             </div>
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview size</p>
-            <input type="range" min={40} max={100} value={scale} onChange={(e) => setScale(Number(e.target.value))} className="mt-2 w-full accent-[var(--accent)]" />
+            <input aria-label="Person size" type="range" min={25} max={100} value={scale} onChange={(e) => { const next = Number(e.target.value); setScale(next); setSnapshot(null); setPlacement((p) => ({ ...p, y: 1 - next / 200 })); }} className="mt-2 w-full accent-[var(--accent)]" />
+            <label className="mt-3 text-xs font-semibold uppercase text-muted-foreground" htmlFor="person-rotation">Rotation</label>
+            <input id="person-rotation" type="range" min={-45} max={45} value={placement.rotation} onChange={(e) => { setSnapshot(null); setPlacement((p) => ({ ...p, rotation: Number(e.target.value) })); }} className="mt-2 w-full accent-[var(--accent)]" />
+            <div className="mt-3 flex gap-2">
+              <Button variant="outline" size="icon" title="Mirror person" aria-label="Mirror person" onClick={() => { setSnapshot(null); setPlacement((p) => ({ ...p, flipped: !p.flipped })); }}><FlipHorizontal2 /></Button>
+              <Button variant="outline" size="icon" title="Reset placement" aria-label="Reset placement" onClick={() => { setSnapshot(null); setScale(85); setPosition("right"); setPlacement({ x: 0.73, y: 0.575, rotation: 0, flipped: false }); }}><RotateCcw /></Button>
+            </div>
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Photo style</p>
             <select className="field mt-2" value={personStyleId ?? ""} onChange={(e) => setPersonStyleId(e.target.value || null)}>
               <option value="">Natural photo</option>
               {effects.map((effect) => <option key={effect.id} value={effect.id}>{effect.emoji} {effect.name}</option>)}
             </select>
-            <p className="mt-3 text-xs text-muted-foreground">The camera overlay guides placement only. The selected pose and style are created in the AI-generated final photo after capture.</p>
+            <p className="mt-3 text-xs text-muted-foreground">Live view uses a 2D cutout. Handshakes, shoulder poses and photo styles are AI-generated after capture.</p>
           </>
         ) : (
         <>
