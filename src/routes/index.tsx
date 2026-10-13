@@ -179,7 +179,12 @@ function Home() {
     };
   }, [boothOpen, photo, isHindi, facingMode]);
 
-  const finishPhoto = (source: CanvasImageSource, width: number, height: number) => {
+  const finishPhoto = (
+    source: CanvasImageSource,
+    width: number,
+    height: number,
+    isCameraCapture = false,
+  ) => {
     const canvas = canvasRef.current;
     if (!canvas || !width || !height) return;
 
@@ -190,22 +195,49 @@ function Home() {
     if (!context) return;
 
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
-    setPhoto(canvas.toDataURL("image/jpeg", 0.95));
-    setAiPhoto(null);
-    setShowAi(false);
-    setAiError(null);
-    setVideoData({ state: "idle" });
-    setVideoError(null);
-    setVideoQr(null);
-    setCameraReady(false);
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+
+    const leaderSrc =
+      isCameraCapture && (selectedModalScene === "yogi" || selectedModalScene === "modi")
+        ? selectedModalScene === "yogi"
+          ? "/assets/yogi.png"
+          : "/assets/modi.png"
+        : null;
+
+    const finalize = () => {
+      setPhoto(canvas.toDataURL("image/jpeg", 0.95));
+      setAiPhoto(null);
+      setShowAi(false);
+      setAiError(null);
+      setVideoData({ state: "idle" });
+      setVideoError(null);
+      setVideoQr(null);
+      setCameraReady(false);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+
+    if (leaderSrc) {
+      const img = new Image();
+      img.onload = () => {
+        const aspect = (img.width || 1) / Math.max(1, img.height || 1);
+        const targetH = canvas.height * 0.94;
+        const targetW = targetH * aspect;
+        const targetX = canvas.width - targetW - canvas.width * 0.03;
+        const targetY = canvas.height - targetH;
+        context.drawImage(img, targetX, targetY, targetW, targetH);
+        finalize();
+      };
+      img.onerror = () => finalize();
+      img.src = leaderSrc;
+    } else {
+      finalize();
+    }
   };
 
   const capturePhoto = () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
-    finishPhoto(video, video.videoWidth, video.videoHeight);
+    finishPhoto(video, video.videoWidth, video.videoHeight, true);
   };
 
   const choosePhoto = async (file?: File) => {
@@ -456,35 +488,18 @@ function Home() {
               <p className="mt-1.5 text-xs text-muted-foreground md:text-sm">{c.desc[lang]}</p>
             </div>
 
-            {/* Action Buttons: Live Selfie, Upload Photo, Video */}
+            {/* Action Buttons: Live AR Selfie, Upload Photo, AI Video */}
             <div className="mt-2 flex flex-col gap-2 pt-3 border-t border-border/60">
               <div className={`grid ${boothMode ? "grid-cols-2" : "grid-cols-3"} gap-2`}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedModalScene(c.id as "modi" | "yogi" | "bjp");
-                    setPhoto(null);
-                    setAiPhoto(null);
-                    setShowAi(false);
-                    setModalQr(null);
-                    setVideoData({ state: "idle" });
-                    setVideoError(null);
-                    setVideoQr(null);
-                    setBoothOpen(true);
-                  }}
+                <Link
+                  to="/experience/$scene"
+                  params={{ scene: c.id }}
+                  search={boothMode ? { mode: "booth" } : undefined}
                   className="zt-btn-primary flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center cursor-pointer shadow-sm hover:shadow"
                 >
                   <span>🤳</span>
-                  <span>
-                    {boothMode
-                      ? isHindi
-                        ? "सेल्फ़ी लें"
-                        : "Take Selfie"
-                      : isHindi
-                        ? "लाइव सेल्फ़ी"
-                        : "Live Selfie"}
-                  </span>
-                </button>
+                  <span>{isHindi ? "लाइव AR सेल्फ़ी" : "Live AR Selfie"}</span>
+                </Link>
 
                 {!boothMode && (
                   <label className="zt-btn-secondary flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold cursor-pointer text-center">
@@ -530,19 +545,24 @@ function Home() {
                   className="zt-btn-ghost border border-border flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center hover:bg-muted"
                 >
                   <span>🎥</span>
-                  <span>{isHindi ? "वीडियो" : "Video"}</span>
+                  <span>{isHindi ? "AI वीडियो" : "AI Video"}</span>
                 </button>
               </div>
 
-              <Link
-                to="/experience/$scene"
-                params={{ scene: c.id }}
-                search={boothMode ? { mode: "booth" } : undefined}
-                className="mt-1 text-[11px] text-center text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1"
-              >
-                <span>🌐</span>
-                <span>{isHindi ? "3D AR लाइव अनुभव खोलें →" : "Try 3D AR Live View →"}</span>
-              </Link>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1 pt-1">
+                <span className="flex items-center gap-1.5 text-emerald-500 font-medium">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  {isHindi ? "कैमरा में लाइव साथ दिखेंगे" : "Real-time Live AR"}
+                </span>
+                <Link
+                  to="/experience/$scene"
+                  params={{ scene: c.id }}
+                  search={boothMode ? { mode: "booth" } : undefined}
+                  className="hover:text-primary transition-colors font-medium flex items-center gap-0.5 text-primary"
+                >
+                  <span>{isHindi ? "कैमरा खोलें →" : "Open Camera →"}</span>
+                </Link>
+              </div>
             </div>
           </div>
         ))}
@@ -711,14 +731,48 @@ function Home() {
                   {cameraError}
                 </p>
               ) : (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  onLoadedMetadata={() => setCameraReady(true)}
-                  className="max-h-[65vh] w-full object-contain"
-                />
+                <div className="relative h-full w-full flex items-center justify-center overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    onLoadedMetadata={() => setCameraReady(true)}
+                    className="max-h-[65vh] w-full object-contain"
+                  />
+                  {selectedModalScene === "yogi" && (
+                    <img
+                      src="/assets/yogi.png"
+                      alt="CM Yogi"
+                      className="absolute right-2 sm:right-6 bottom-0 max-h-[92%] object-contain pointer-events-none drop-shadow-2xl z-10 animate-in fade-in"
+                    />
+                  )}
+                  {selectedModalScene === "modi" && (
+                    <img
+                      src="/assets/modi.png"
+                      alt="PM Modi"
+                      className="absolute right-2 sm:right-6 bottom-0 max-h-[92%] object-contain pointer-events-none drop-shadow-2xl z-10 animate-in fade-in"
+                    />
+                  )}
+                  {selectedModalScene === "bjp" && (
+                    <img
+                      src="/assets/bjp.png"
+                      alt="BJP Emblem"
+                      className="absolute top-4 right-4 h-16 w-auto object-contain pointer-events-none drop-shadow-md z-10"
+                    />
+                  )}
+                  <Link
+                    to="/experience/$scene"
+                    params={{ scene: selectedModalScene }}
+                    search={boothMode ? { mode: "booth" } : undefined}
+                    className="absolute top-3 left-3 rounded-full bg-primary/90 hover:bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg flex items-center gap-1.5 z-20 backdrop-blur-sm"
+                  >
+                    <span>🌐</span>
+                    <span>
+                      {isHindi ? "फुल 3D AR ट्रैकिंग कैमरा" : "Full 3D AR Tracking Camera"}
+                    </span>
+                  </Link>
+                </div>
               )}
             </div>
             <canvas ref={canvasRef} className="hidden" />

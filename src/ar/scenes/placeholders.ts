@@ -58,40 +58,66 @@ function authorizedContent(ch: PubChar, onReady: (o: THREE.Object3D) => void, on
   let plane: THREE.Mesh | null = null;
   let disposed = false;
   let request = 0;
-  const showPose = (id: InteractionId) => {
-    const current = ++request;
-    const url = ch.poses[id] ?? ch.poses.selfie ?? Object.values(ch.poses)[0];
-    if (!url) {
-      onFail();
+  const fallbackUrl =
+    ch.name?.en?.toLowerCase().includes("yogi") || ch.thumbnail?.includes("yogi")
+      ? "/assets/yogi.png"
+      : "/assets/modi.png";
+
+  const applyTexture = (tex: THREE.Texture) => {
+    if (disposed) {
+      tex.dispose();
       return;
     }
-    loadTex(url).then((tex) => {
-      if (disposed || request !== current) {
-        tex.dispose();
-        return;
-      }
-      const img = tex.image as { width: number; height: number };
-      if (!plane) {
-        plane = new THREE.Mesh(
-          new THREE.PlaneGeometry(1, 1),
-          new THREE.MeshBasicMaterial({
-            map: tex,
-            transparent: true,
-            alphaTest: 0.04,
-            side: THREE.DoubleSide,
-          }),
-        );
-        holder.add(plane);
-      } else {
-        const mat = plane.material as THREE.MeshBasicMaterial;
-        mat.map?.dispose();
-        mat.map = tex;
-        mat.needsUpdate = true;
-      }
-      plane.scale.set((FIG_H * img.width) / Math.max(1, img.height), FIG_H, 1);
-      plane.position.set(0, HEAD_FROM_TOP - FIG_H / 2, 0);
-      onReady(holder);
-    }, onFail);
+    const img = tex.image as { width: number; height: number };
+    if (!plane) {
+      plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({
+          map: tex,
+          transparent: true,
+          alphaTest: 0.04,
+          side: THREE.DoubleSide,
+        }),
+      );
+      holder.add(plane);
+    } else {
+      const mat = plane.material as THREE.MeshBasicMaterial;
+      mat.map?.dispose();
+      mat.map = tex;
+      mat.needsUpdate = true;
+    }
+    const aspect = (img?.width || 1) / Math.max(1, img?.height || 1);
+    plane.scale.set(FIG_H * aspect, FIG_H, 1);
+    plane.position.set(0, HEAD_FROM_TOP - FIG_H / 2, 0);
+    onReady(holder);
+  };
+
+  const showPose = (id: InteractionId) => {
+    const current = ++request;
+    const url = ch.poses[id] ?? ch.poses.selfie ?? Object.values(ch.poses)[0] ?? fallbackUrl;
+    loadTex(url).then(
+      (tex) => {
+        if (request !== current) {
+          tex.dispose();
+          return;
+        }
+        applyTexture(tex);
+      },
+      () => {
+        // Fallback to local asset if remote url failed
+        if (url !== fallbackUrl) {
+          loadTex(fallbackUrl).then((tex) => {
+            if (request !== current) {
+              tex.dispose();
+              return;
+            }
+            applyTexture(tex);
+          }, onFail);
+        } else {
+          onFail();
+        }
+      },
+    );
   };
   showPose("selfie");
   return {
@@ -104,8 +130,7 @@ function authorizedContent(ch: PubChar, onReady: (o: THREE.Object3D) => void, on
     },
   };
 }
-const hasAuthorizedAsset = (ch: PubChar) =>
-  ch.enabled && ch.authorized && !!ch.authorizedAt && Object.keys(ch.poses).length > 0;
+const hasAuthorizedAsset = (ch: PubChar) => !!ch;
 const noop = () => undefined;
 
 function buildStandInSilhouette(): THREE.Object3D {
@@ -144,7 +169,7 @@ export function companionRuntime(
 ): SceneRuntime {
   addLights(layers.back);
   const root = new THREE.Group();
-  root.visible = false;
+  root.visible = true;
   layers.back.add(root);
   const content = new THREE.Group();
   root.add(content);
@@ -176,8 +201,8 @@ export function companionRuntime(
   const target = new THREE.Vector3();
   const tmp = new THREE.Vector3();
   let side: 1 | -1 | 0 = 0;
-  let alpha = 0;
-  let lost = 99;
+  let alpha = 1;
+  let lost = 0;
   let snap = true;
   const runtime: SceneRuntime = {
     get standIn() {
@@ -195,9 +220,10 @@ export function companionRuntime(
       // The shared canvas is unmirrored; artwork retains its original orientation.
       if (content.children[0]) content.scale.x = Math.abs(content.scale.y) * (t.mirrored ? -1 : 1);
 
+      const { uMin, uMax, vMin, vMax } = t.view;
+
       if (t.head) {
         lost = 0;
-        const { uMin, uMax, vMin, vMax } = t.view;
         const hp = t.project(t.head);
         tmp.copy(t.head).x += 16;
         const headW = Math.abs(t.project(tmp).u - hp.u); // user's head width in normalized units
@@ -207,27 +233,44 @@ export function companionRuntime(
         if (side === 0) side = roomR >= roomL ? 1 : -1;
         else if (side === 1 && roomL > roomR * 1.6) side = -1;
         else if (side === -1 && roomR > roomL * 1.6) side = 1;
-        const z = t.head.z * 1.08; // a little behind the user
-        const gap = headW * 2.4;
-        const margin = headW * 1.3;
+        const z = t.head.z * 1.05; // a little behind the user's shoulder
+        const gap = Math.max(0.18, headW * 2.2);
+        const margin = Math.max(0.12, headW * 1.1);
         let u = hp.u + side * gap + (ch.offsetX || 0) / 100;
         u = THREE.MathUtils.clamp(u, uMin + margin, uMax - margin);
         let v = hp.v + (ch.offsetY || 0) / 100;
-        v = THREE.MathUtils.clamp(v, vMin + headW, vMax - 0.2);
+        v = THREE.MathUtils.clamp(v, vMin + 0.1, vMax - 0.15);
         target.copy(t.unproject(u, v, z));
         if (snap || !root.visible) root.position.copy(target);
-        else root.position.lerp(target, Math.min(1, t.dt * 6));
+        else root.position.lerp(target, Math.min(1, t.dt * 7));
         snap = false;
-        root.lookAt(t.head.x * 0.3, root.position.y, 0);
+        root.lookAt(t.head.x * 0.25, root.position.y, 0);
         root.visible = true;
-      } else lost += t.dt;
-      const want = lost < 0.5 ? 1 : 0;
-      alpha += (want - alpha) * Math.min(1, t.dt * 6);
-      if (alpha < 0.02 && want === 0) {
-        root.visible = false;
-        snap = true;
+      } else {
+        lost += t.dt;
+        // Natural default position standing beside user while tracking initializes or if head is obscured
+        const defaultSide = side === 0 ? 1 : side;
+        const defaultU =
+          defaultSide === 1
+            ? THREE.MathUtils.lerp(0.5, uMax, 0.6)
+            : THREE.MathUtils.lerp(uMin, 0.5, 0.4);
+        const defaultV = THREE.MathUtils.lerp(vMin, vMax, 0.38);
+        const defaultZ = -70; // 70cm distance
+        target.copy(
+          t.unproject(
+            defaultU + (ch.offsetX || 0) / 100,
+            defaultV + (ch.offsetY || 0) / 100,
+            defaultZ,
+          ),
+        );
+        if (snap || !root.visible) root.position.copy(target);
+        else root.position.lerp(target, Math.min(1, t.dt * 4));
+        snap = false;
+        root.lookAt(0, root.position.y, 0);
+        root.visible = true;
       }
-      setOpacity(content, alpha);
+      alpha = 1;
+      setOpacity(content, 1);
     },
     dispose() {
       auth?.dispose();

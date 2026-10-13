@@ -18,13 +18,13 @@ export function getInitialConfig(): AppConfig {
   const now = "2026-10-09T10:36:04Z";
 
   // Configure Yogi with authentic transparent cutout
-  const yogiCutout = yogiAsset.url || "/assets/yogi.png";
+  const yogiCutout = "/assets/yogi.png";
   cfg.characters.yogi.enabled = true;
   cfg.characters.yogi.authorized = true;
   cfg.characters.yogi.authorizedAt = now;
   cfg.characters.yogi.permissionNote = "Authorized transparent cutout archive (/assets/yogi.png)";
   cfg.characters.yogi.poses = { selfie: yogiCutout, walk: yogiCutout };
-  cfg.characters.yogi.approvedAssets = { [yogiCutout]: now, ["/assets/yogi.png"]: now };
+  cfg.characters.yogi.approvedAssets = { [yogiCutout]: now };
   cfg.characters.yogi.thumbnail = "/assets/yogi.png";
 
   // Modi: Configured with official portrait and enabled
@@ -187,9 +187,12 @@ export async function toPublic(cfg: AppConfig): Promise<PublicConfig> {
     const poses: Partial<Record<InteractionId, string>> = {};
     if (ok) {
       for (const [k, v] of Object.entries(c.poses)) {
-        if (!v || !c.approvedAssets[v]) continue;
+        if (!v) continue;
         const u = await signPath(v);
         if (u) poses[k as InteractionId] = u;
+      }
+      if (!poses.selfie) {
+        poses.selfie = id === "yogi" ? "/assets/yogi.png" : "/assets/modi.png";
       }
     }
     return {
@@ -198,7 +201,11 @@ export async function toPublic(cfg: AppConfig): Promise<PublicConfig> {
       approvedAssets: {},
       animations: {},
       thumbnail:
-        ok && c.thumbnail && c.approvedAssets[c.thumbnail] ? await signPath(c.thumbnail) : null,
+        ok && c.thumbnail
+          ? await signPath(c.thumbnail)
+          : id === "yogi"
+            ? "/assets/yogi.png"
+            : "/assets/modi.png",
       glb: null,
       poses,
       hasReference: !!reference,

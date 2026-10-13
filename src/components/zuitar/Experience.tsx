@@ -24,7 +24,7 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [configError, setConfigError] = useState(false);
   const [caps, setCaps] = useState<Caps | null>(null);
-  const [phase, setPhase] = useState<Phase>("intro");
+  const [phase, setPhase] = useState<Phase>("live");
   const [facing, setFacing] = useState<"user" | "environment">(scene.camera.default);
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
