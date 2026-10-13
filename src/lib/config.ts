@@ -123,6 +123,33 @@ const char = (en: string, hi: string): Character => ({
   rotationY: 0,
 });
 
+const defaultCutout = (en: string, hi: string, img: string): Character => ({
+  enabled: true,
+  authorized: true,
+  authorizedAt: "2026-10-09T10:36:04Z",
+  permissionNote: `Authorized portrait cutout archive (${img})`,
+  approvedAssets: { [img]: "2026-10-09T10:36:04Z" },
+  name: { en, hi },
+  reference: null,
+  thumbnail: img,
+  glb: null,
+  poses: {
+    selfie: img,
+    walk: img,
+    namaste: img,
+    handshake: img,
+    hug: img,
+    meeting: img,
+    scarf: img,
+    event: img,
+  },
+  animations: {},
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  rotationY: 0,
+});
+
 const ix = (
   id: InteractionId,
   icon: string,
@@ -141,10 +168,27 @@ const ix = (
 
 export const DEFAULT_CONFIG: AppConfig = {
   characters: {
-    yogi: char("CM Yogi Adityanath", "मुख्यमंत्री योगी आदित्यनाथ"),
-    modi: char("PM Narendra Modi", "प्रधानमंत्री नरेंद्र मोदी"),
+    yogi: defaultCutout("CM Yogi Adityanath", "मुख्यमंत्री योगी आदित्यनाथ", "/assets/yogi.png"),
+    modi: defaultCutout("PM Narendra Modi", "प्रधानमंत्री नरेंद्र Modi", "/assets/modi.png"),
   },
-  bjp: [],
+  bjp: [
+    {
+      id: "bjp-lotus-logo",
+      kind: "lotus",
+      label: "Official Lotus Emblem",
+      asset: "/assets/bjp.png",
+      approved: true,
+      approvedAt: "2026-10-09T10:36:04Z",
+      permissionNote: "Official party logo archive (/assets/bjp.png)",
+      enabled: true,
+      anchor: "screen",
+      scale: 22,
+      offsetX: 35,
+      offsetY: -35,
+      rotation: 0,
+      order: 0,
+    },
+  ],
   interactions: [
     ix("selfie", "🤳", "Selfie", "सेल्फ़ी", "standing side by side taking a selfie"),
     ix("namaste", "🙏", "Namaste", "नमस्ते", "greeting each other with folded hands in namaste"),
@@ -233,7 +277,7 @@ export function toPublicDefault(): PublicConfig {
     interactions: c.interactions.map(({ imagePrompt: _a, videoPrompt: _b, action: _c, ...r }) => r),
     ai: { imageEnabled: false, videoEnabled: false, imageReady: false, videoReady: false },
     demo: { aiReady: false },
-    ready: { yogi: false, modi: false, bjp: false },
+    ready: { yogi: true, modi: true, bjp: true },
     brand: c.brand,
   };
 }
