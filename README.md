@@ -1,14 +1,14 @@
-# Pixel Perfect Replication
+# GitHub Connect
 
-Implement exactly the screenshot and nothing else
+@connector:github:"GitHub API" https://github.com/amanchandel6395-ai/zuitar
 
 This project was built with [Lovable](https://lovable.dev).
 
-**Live app**: https://zuitar.lovable.app
+**Live app**: https://ar-world-play.lovable.app
 
 ## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/80490a09-7aea-46bf-a7d4-294dd8c1c802).
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/ebacbeee-e4be-43c3-861d-a289efd94777).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.

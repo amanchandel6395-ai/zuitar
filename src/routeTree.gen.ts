@@ -10,120 +10,128 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedGalleryRouteImport } from './routes/_authenticated/gallery'
-import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
-import { Route as ApiEditImageRouteImport } from './routes/api/edit-image'
-import { Route as SelfieKindRouteImport } from './routes/selfie.$kind'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as SelfieRouteImport } from './routes/selfie'
+import { Route as WorldRouteImport } from './routes/world'
+import { Route as ApiEnhanceRouteImport } from './routes/api/enhance'
+import { Route as ApiVideoRouteImport } from './routes/api/video'
+import { Route as ExperienceSceneRouteImport } from './routes/experience.$scene'
+import { Route as RTokenRouteImport } from './routes/r.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedGalleryRoute = AuthenticatedGalleryRouteImport.update({
-  id: '/gallery',
-  path: '/gallery',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedStudioRoute = AuthenticatedStudioRouteImport.update({
-  id: '/studio',
-  path: '/studio',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const ApiEditImageRoute = ApiEditImageRouteImport.update({
-  id: '/api/edit-image',
-  path: '/api/edit-image',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SelfieKindRoute = SelfieKindRouteImport.update({
-  id: '/selfie/$kind',
-  path: '/selfie/$kind',
+const SelfieRoute = SelfieRouteImport.update({
+  id: '/selfie',
+  path: '/selfie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorldRoute = WorldRouteImport.update({
+  id: '/world',
+  path: '/world',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEnhanceRoute = ApiEnhanceRouteImport.update({
+  id: '/api/enhance',
+  path: '/api/enhance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVideoRoute = ApiVideoRouteImport.update({
+  id: '/api/video',
+  path: '/api/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExperienceSceneRoute = ExperienceSceneRouteImport.update({
+  id: '/experience/$scene',
+  path: '/experience/$scene',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RTokenRoute = RTokenRouteImport.update({
+  id: '/r/$token',
+  path: '/r/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
-  '/admin': typeof AuthenticatedAdminRoute
-  '/gallery': typeof AuthenticatedGalleryRoute
-  '/studio': typeof AuthenticatedStudioRoute
-  '/api/edit-image': typeof ApiEditImageRoute
-  '/selfie/$kind': typeof SelfieKindRoute
+  '/admin': typeof AdminRoute
+  '/selfie': typeof SelfieRoute
+  '/world': typeof WorldRoute
+  '/api/enhance': typeof ApiEnhanceRoute
+  '/api/video': typeof ApiVideoRoute
+  '/experience/$scene': typeof ExperienceSceneRoute
+  '/r/$token': typeof RTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
-  '/admin': typeof AuthenticatedAdminRoute
-  '/gallery': typeof AuthenticatedGalleryRoute
-  '/studio': typeof AuthenticatedStudioRoute
-  '/api/edit-image': typeof ApiEditImageRoute
-  '/selfie/$kind': typeof SelfieKindRoute
+  '/admin': typeof AdminRoute
+  '/selfie': typeof SelfieRoute
+  '/world': typeof WorldRoute
+  '/api/enhance': typeof ApiEnhanceRoute
+  '/api/video': typeof ApiVideoRoute
+  '/experience/$scene': typeof ExperienceSceneRoute
+  '/r/$token': typeof RTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/auth': typeof AuthRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
-  '/_authenticated/gallery': typeof AuthenticatedGalleryRoute
-  '/_authenticated/studio': typeof AuthenticatedStudioRoute
-  '/api/edit-image': typeof ApiEditImageRoute
-  '/selfie/$kind': typeof SelfieKindRoute
+  '/admin': typeof AdminRoute
+  '/selfie': typeof SelfieRoute
+  '/world': typeof WorldRoute
+  '/api/enhance': typeof ApiEnhanceRoute
+  '/api/video': typeof ApiVideoRoute
+  '/experience/$scene': typeof ExperienceSceneRoute
+  '/r/$token': typeof RTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/admin'
-    | '/gallery'
-    | '/studio'
-    | '/api/edit-image'
-    | '/selfie/$kind'
+    | '/selfie'
+    | '/world'
+    | '/api/enhance'
+    | '/api/video'
+    | '/experience/$scene'
+    | '/r/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/admin'
-    | '/gallery'
-    | '/studio'
-    | '/api/edit-image'
-    | '/selfie/$kind'
+    | '/selfie'
+    | '/world'
+    | '/api/enhance'
+    | '/api/video'
+    | '/experience/$scene'
+    | '/r/$token'
   id:
     | '__root__'
     | '/'
-    | '/_authenticated'
-    | '/auth'
-    | '/_authenticated/admin'
-    | '/_authenticated/gallery'
-    | '/_authenticated/studio'
-    | '/api/edit-image'
-    | '/selfie/$kind'
+    | '/admin'
+    | '/selfie'
+    | '/world'
+    | '/api/enhance'
+    | '/api/video'
+    | '/experience/$scene'
+    | '/r/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  AuthRoute: typeof AuthRoute
-  ApiEditImageRoute: typeof ApiEditImageRoute
-  SelfieKindRoute: typeof SelfieKindRoute
+  AdminRoute: typeof AdminRoute
+  SelfieRoute: typeof SelfieRoute
+  WorldRoute: typeof WorldRoute
+  ApiEnhanceRoute: typeof ApiEnhanceRoute
+  ApiVideoRoute: typeof ApiVideoRoute
+  ExperienceSceneRoute: typeof ExperienceSceneRoute
+  RTokenRoute: typeof RTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -135,79 +143,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
+    '/admin': {
+      id: '/admin'
       path: '/admin'
       fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/gallery': {
-      id: '/_authenticated/gallery'
-      path: '/gallery'
-      fullPath: '/gallery'
-      preLoaderRoute: typeof AuthenticatedGalleryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/studio': {
-      id: '/_authenticated/studio'
-      path: '/studio'
-      fullPath: '/studio'
-      preLoaderRoute: typeof AuthenticatedStudioRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/api/edit-image': {
-      id: '/api/edit-image'
-      path: '/api/edit-image'
-      fullPath: '/api/edit-image'
-      preLoaderRoute: typeof ApiEditImageRouteImport
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/selfie/$kind': {
-      id: '/selfie/$kind'
-      path: '/selfie/$kind'
-      fullPath: '/selfie/$kind'
-      preLoaderRoute: typeof SelfieKindRouteImport
+    '/selfie': {
+      id: '/selfie'
+      path: '/selfie'
+      fullPath: '/selfie'
+      preLoaderRoute: typeof SelfieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/world': {
+      id: '/world'
+      path: '/world'
+      fullPath: '/world'
+      preLoaderRoute: typeof WorldRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/enhance': {
+      id: '/api/enhance'
+      path: '/api/enhance'
+      fullPath: '/api/enhance'
+      preLoaderRoute: typeof ApiEnhanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/video': {
+      id: '/api/video'
+      path: '/api/video'
+      fullPath: '/api/video'
+      preLoaderRoute: typeof ApiVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/experience/$scene': {
+      id: '/experience/$scene'
+      path: '/experience/$scene'
+      fullPath: '/experience/$scene'
+      preLoaderRoute: typeof ExperienceSceneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/r/$token': {
+      id: '/r/$token'
+      path: '/r/$token'
+      fullPath: '/r/$token'
+      preLoaderRoute: typeof RTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
-  AuthenticatedGalleryRoute: typeof AuthenticatedGalleryRoute
-  AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
-}
-
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
-  AuthenticatedGalleryRoute: AuthenticatedGalleryRoute,
-  AuthenticatedStudioRoute: AuthenticatedStudioRoute,
-}
-
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  AuthRoute: AuthRoute,
-  ApiEditImageRoute: ApiEditImageRoute,
-  SelfieKindRoute: SelfieKindRoute,
+  AdminRoute: AdminRoute,
+  SelfieRoute: SelfieRoute,
+  WorldRoute: WorldRoute,
+  ApiEnhanceRoute: ApiEnhanceRoute,
+  ApiVideoRoute: ApiVideoRoute,
+  ExperienceSceneRoute: ExperienceSceneRoute,
+  RTokenRoute: RTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

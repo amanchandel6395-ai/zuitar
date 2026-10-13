@@ -1,8 +1,5 @@
 # Roadmap
-- [x] Add Modi and Yogi character assets and database records
-- [x] Add admin-controlled AI person pose catalog
-- [x] Add pose and style controls for camera and upload
-- [x] Resolve person, pose, and style prompts server-side
-- [x] Verify build, database access, and signed-in Studio flow
-- [x] Add live-camera person selection, movable overlays and instant composite capture
-- [x] Verify signed-in camera capture and downloadable photo (simulated webcam)
+
+- [x] Homepage: removed "Try the photo booth demo" section + modal and its camera/upload/AI logic; three cards still link to /experience/$scene (yogi, modi, bjp)
+- [x] Experience intro: added Upload Photo alongside Start camera; back-home and setup-incomplete checks preserved
+- [x] Typecheck passed; tests run (1 pre-existing env-dependent failure, unrelated)
