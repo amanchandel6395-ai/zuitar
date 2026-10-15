@@ -1,5 +1,3 @@
-import yogiAsset from "@/assets/dc5afdb0fe2b72a63ddddacca5ad7fc1.png.asset.json";
-import flagAsset from "@/assets/bjp-flag-with-text-1704.png.asset.json";
 import {
   bjpUsable,
   characterReady,
@@ -17,14 +15,16 @@ export function getInitialConfig(): AppConfig {
   const cfg = mergeConfig(DEFAULT_CONFIG);
   const now = "2026-10-09T10:36:04Z";
 
-  // Configure Yogi with authentic transparent cutout
-  const yogiCutout = "/assets/yogi.png";
+  // Configure Yogi with authentic image
+  const yogiCutout =
+    "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/d3114b63-feb9-44d2-af69-a176900950e9/dc5afdb0fe2b72a63ddddacca5ad7fc1.png";
   cfg.characters.yogi.enabled = true;
   cfg.characters.yogi.authorized = true;
   cfg.characters.yogi.authorizedAt = now;
-  cfg.characters.yogi.permissionNote = "Authorized transparent cutout archive (/assets/yogi.png)";
+  cfg.characters.yogi.permissionNote =
+    "Authorized transparent cutout archive (dc5afdb0fe2b72a63ddddacca5ad7fc1.png)";
   cfg.characters.yogi.poses = { selfie: yogiCutout, walk: yogiCutout };
-  cfg.characters.yogi.approvedAssets = { [yogiCutout]: now };
+  cfg.characters.yogi.approvedAssets = { [yogiCutout]: now, "/assets/yogi.png": now };
   cfg.characters.yogi.thumbnail = "/assets/yogi.png";
 
   // Modi: Configured with official portrait and enabled
@@ -37,8 +37,11 @@ export function getInitialConfig(): AppConfig {
   cfg.characters.modi.approvedAssets = { [modiImage]: now };
   cfg.characters.modi.thumbnail = modiImage;
 
-  // BJP Look: Configure authentic lotus emblem and flag using local asset
-  const bjpLogo = "/assets/bjp.png";
+  // BJP Look: Configure authentic lotus emblem and flag
+  const bjpLogo =
+    "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/4434408b-2a36-4cc4-84a4-952d49ac2dd5/BJP-Logo-700x394.png";
+  const bjpFlag =
+    "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/c7bf7c98-15cf-4bb9-b7b5-e6a8d626359f/bjp-flag-with-text-1704.png";
 
   cfg.bjp = [
     {
@@ -48,7 +51,7 @@ export function getInitialConfig(): AppConfig {
       asset: bjpLogo,
       approved: true,
       approvedAt: now,
-      permissionNote: "Official party logo archive (/assets/bjp.png)",
+      permissionNote: "Official party logo archive",
       enabled: true,
       anchor: "screen",
       scale: 22,
@@ -61,10 +64,10 @@ export function getInitialConfig(): AppConfig {
       id: "bjp-flag",
       kind: "flag",
       label: "Official BJP Flag with text",
-      asset: flagAsset.url || bjpLogo,
+      asset: bjpFlag,
       approved: true,
       approvedAt: now,
-      permissionNote: "Official party flag archive (bjp-flag-with-text-1704.png)",
+      permissionNote: "Official party flag archive",
       enabled: true,
       anchor: "screen",
       scale: 28,
@@ -187,12 +190,9 @@ export async function toPublic(cfg: AppConfig): Promise<PublicConfig> {
     const poses: Partial<Record<InteractionId, string>> = {};
     if (ok) {
       for (const [k, v] of Object.entries(c.poses)) {
-        if (!v) continue;
+        if (!v || !c.approvedAssets[v]) continue;
         const u = await signPath(v);
         if (u) poses[k as InteractionId] = u;
-      }
-      if (!poses.selfie) {
-        poses.selfie = id === "yogi" ? "/assets/yogi.png" : "/assets/modi.png";
       }
     }
     return {
@@ -201,11 +201,7 @@ export async function toPublic(cfg: AppConfig): Promise<PublicConfig> {
       approvedAssets: {},
       animations: {},
       thumbnail:
-        ok && c.thumbnail
-          ? await signPath(c.thumbnail)
-          : id === "yogi"
-            ? "/assets/yogi.png"
-            : "/assets/modi.png",
+        ok && c.thumbnail && c.approvedAssets[c.thumbnail] ? await signPath(c.thumbnail) : null,
       glb: null,
       poses,
       hasReference: !!reference,

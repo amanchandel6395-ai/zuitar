@@ -40,6 +40,14 @@ export type EngineHandle = {
   /** Re-runs automatic side choice / snaps the companion back into frame. */
   resetPlacement(): void;
   setInteraction(id: InteractionId): void;
+  setSlogan?(text: string): void;
+  setFilterOptions?(opts: {
+    cheekArt?: boolean;
+    flag?: boolean;
+    tilak?: boolean;
+    stole?: boolean;
+    slogan?: string;
+  }): void;
   /** Rear-camera torch where the browser exposes it. */
   torchSupported: boolean;
   setTorch(on: boolean): Promise<boolean>;
@@ -397,6 +405,12 @@ export async function startFrontEngine(opts: {
       },
       setInteraction(id) {
         runtime.setInteraction?.(id);
+      },
+      setSlogan(text) {
+        runtime.setSlogan?.(text);
+      },
+      setFilterOptions(opts) {
+        runtime.setFilterOptions?.(opts);
       },
       get standIn() {
         return !!runtime.standIn;

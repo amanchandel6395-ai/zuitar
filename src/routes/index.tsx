@@ -97,13 +97,6 @@ function Home() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [modalQr, setModalQr] = useState<string | null>(null);
   const [modalQrBusy, setModalQrBusy] = useState(false);
-  const [videoData, setVideoData] = useState<{
-    state: "idle" | "busy" | "ready";
-    url?: string;
-    progress?: number | null;
-  }>({ state: "idle" });
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [videoQr, setVideoQr] = useState<string | null>(null);
   const shareFn = useServerFn(createShare);
   const [selectedModalScene, setSelectedModalScene] = useState<"modi" | "yogi" | "bjp">("modi");
   const [selectedModalInteraction, setSelectedModalInteraction] = useState<string>("selfie");
@@ -179,12 +172,7 @@ function Home() {
     };
   }, [boothOpen, photo, isHindi, facingMode]);
 
-  const finishPhoto = (
-    source: CanvasImageSource,
-    width: number,
-    height: number,
-    isCameraCapture = false,
-  ) => {
+  const finishPhoto = (source: CanvasImageSource, width: number, height: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !width || !height) return;
 
@@ -195,49 +183,30 @@ function Home() {
     if (!context) return;
 
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
-
-    const leaderSrc =
-      isCameraCapture && (selectedModalScene === "yogi" || selectedModalScene === "modi")
-        ? selectedModalScene === "yogi"
-          ? "/assets/yogi.png"
-          : "/assets/modi.png"
-        : null;
-
-    const finalize = () => {
-      setPhoto(canvas.toDataURL("image/jpeg", 0.95));
-      setAiPhoto(null);
-      setShowAi(false);
-      setAiError(null);
-      setVideoData({ state: "idle" });
-      setVideoError(null);
-      setVideoQr(null);
-      setCameraReady(false);
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    };
-
-    if (leaderSrc) {
-      const img = new Image();
-      img.onload = () => {
-        const aspect = (img.width || 1) / Math.max(1, img.height || 1);
-        const targetH = canvas.height * 0.94;
-        const targetW = targetH * aspect;
-        const targetX = canvas.width - targetW - canvas.width * 0.03;
-        const targetY = canvas.height - targetH;
-        context.drawImage(img, targetX, targetY, targetW, targetH);
-        finalize();
-      };
-      img.onerror = () => finalize();
-      img.src = leaderSrc;
-    } else {
-      finalize();
-    }
+    const footerHeight = Math.max(62, Math.round(canvas.width * 0.12));
+    context.fillStyle = "#111827";
+    context.fillRect(0, canvas.height - footerHeight, canvas.width, footerHeight);
+    context.fillStyle = "#fbbf24";
+    context.font = `600 ${Math.max(16, Math.round(canvas.width * 0.035))}px sans-serif`;
+    context.textBaseline = "middle";
+    context.fillText(
+      "ZUITAR · PHOTO BOOTH DEMO",
+      Math.round(canvas.width * 0.05),
+      canvas.height - footerHeight / 2,
+    );
+    setPhoto(canvas.toDataURL("image/jpeg", 0.92));
+    setAiPhoto(null);
+    setShowAi(false);
+    setAiError(null);
+    setCameraReady(false);
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
   };
 
   const capturePhoto = () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
-    finishPhoto(video, video.videoWidth, video.videoHeight, true);
+    finishPhoto(video, video.videoWidth, video.videoHeight);
   };
 
   const choosePhoto = async (file?: File) => {
@@ -256,76 +225,6 @@ function Home() {
         isHindi
           ? "यह फोटो खुल नहीं सकी। दूसरी image चुनें।"
           : "This photo could not be opened. Choose another image.",
-      );
-    }
-  };
-
-  const generateVideo = async (
-    scene = selectedModalScene,
-    interaction = selectedModalInteraction,
-  ) => {
-    if (!photo || videoData.state === "busy") return;
-    setVideoData({ state: "busy", progress: null });
-    setVideoError(null);
-    try {
-      const image = await (await fetch(photo)).blob();
-      const form = new FormData();
-      form.append("image", image, "customer-photo.jpg");
-      form.append("scene", scene);
-      form.append("interaction", interaction);
-      const response = await fetch("/api/video", { method: "POST", body: form });
-      const result = (await response.json().catch(() => ({}))) as { id?: string; code?: string };
-      if (!response.ok || !result.id) {
-        throw new Error(
-          result.code === "not_configured"
-            ? isHindi
-              ? "वीडियो सेवा अभी उपलब्ध नहीं है।"
-              : "Video generation is not available yet."
-            : isHindi
-              ? "वीडियो तैयार नहीं हो सका।"
-              : "Could not create video.",
-        );
-      }
-      const id = result.id;
-      const deadline = Date.now() + 6 * 60_000;
-      const poll = async () => {
-        if (Date.now() > deadline) {
-          setVideoData({ state: "idle" });
-          setVideoError(isHindi ? "वीडियो में समय समाप्त हुआ।" : "Video timed out.");
-          return;
-        }
-        try {
-          const r = await fetch(`/api/video?id=${encodeURIComponent(id)}`);
-          const p = (await r.json().catch(() => ({}))) as {
-            status?: string;
-            url?: string | null;
-            progress?: number | null;
-            code?: string;
-          };
-          if (p.status === "completed" && p.url) {
-            setVideoData({ state: "ready", url: p.url });
-            if (boothMode) {
-              const q = await QRCode.toDataURL(p.url, { width: 512, margin: 1 });
-              setVideoQr(q);
-            }
-            return;
-          }
-          if (p.status === "failed") {
-            setVideoData({ state: "idle" });
-            setVideoError(isHindi ? "वीडियो निर्माण विफल हुआ।" : "Video failed.");
-            return;
-          }
-          setVideoData({ state: "busy", progress: p.progress ?? null });
-          window.setTimeout(poll, 6000);
-        } catch {
-          window.setTimeout(poll, 8000);
-        }
-      };
-      window.setTimeout(poll, 4000);
-    } catch (e) {
-      setVideoData({ state: "idle" });
-      setVideoError(
-        e instanceof Error ? e.message : isHindi ? "वीडियो निर्माण विफल हुआ।" : "Video failed.",
       );
     }
   };
@@ -420,18 +319,13 @@ function Home() {
           >
             {LangToggleLabel(lang)}
           </button>
-          <div
-            className="flex rounded-full border border-border bg-overlay/50 p-0.5 text-xs"
-            aria-label={t.deviceMode}
-          >
+          <div className="flex rounded-full border border-border bg-overlay/50 p-0.5 text-xs" aria-label={t.deviceMode}>
             <button
               type="button"
               onClick={() => setDeviceMode(false)}
               aria-pressed={!boothMode}
               className={`rounded-full px-3 py-1 transition-all ${
-                !boothMode
-                  ? "bg-primary text-primary-foreground font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
+                !boothMode ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               📱 {t.personalMode}
@@ -441,9 +335,7 @@ function Home() {
               onClick={() => setDeviceMode(true)}
               aria-pressed={boothMode}
               className={`rounded-full px-3 py-1 transition-all ${
-                boothMode
-                  ? "bg-primary text-primary-foreground font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
+                boothMode ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               🏢 {t.boothMode}
@@ -488,17 +380,20 @@ function Home() {
               <p className="mt-1.5 text-xs text-muted-foreground md:text-sm">{c.desc[lang]}</p>
             </div>
 
-            {/* Action Buttons: Live AR Selfie, Upload Photo, AI Video */}
+            {/* Action Buttons: Live Selfie, Upload Photo, Video */}
             <div className="mt-2 flex flex-col gap-2 pt-3 border-t border-border/60">
               <div className={`grid ${boothMode ? "grid-cols-2" : "grid-cols-3"} gap-2`}>
                 <Link
                   to="/experience/$scene"
                   params={{ scene: c.id }}
                   search={boothMode ? { mode: "booth" } : undefined}
-                  className="zt-btn-primary flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center cursor-pointer shadow-sm hover:shadow"
+                  onClick={() =>
+                    localStorage.setItem("zuitar.deviceMode", boothMode ? "booth" : "personal")
+                  }
+                  className="zt-btn-primary flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center"
                 >
                   <span>🤳</span>
-                  <span>{isHindi ? "लाइव AR सेल्फ़ी" : "Live AR Selfie"}</span>
+                  <span>{boothMode ? (isHindi ? "सेल्फ़ी लें" : "Take Selfie") : (isHindi ? "लाइव सेल्फ़ी" : "Live Selfie")}</span>
                 </Link>
 
                 {!boothMode && (
@@ -513,13 +408,6 @@ function Home() {
                         const file = event.currentTarget.files?.[0];
                         if (file) {
                           setSelectedModalScene(c.id as "modi" | "yogi" | "bjp");
-                          setPhoto(null);
-                          setAiPhoto(null);
-                          setShowAi(false);
-                          setModalQr(null);
-                          setVideoData({ state: "idle" });
-                          setVideoError(null);
-                          setVideoQr(null);
                           setBoothOpen(true);
                           void choosePhoto(file);
                         }
@@ -529,38 +417,17 @@ function Home() {
                   </label>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedModalScene(c.id as "modi" | "yogi" | "bjp");
-                    setPhoto(null);
-                    setAiPhoto(null);
-                    setShowAi(false);
-                    setModalQr(null);
-                    setVideoData({ state: "idle" });
-                    setVideoError(null);
-                    setVideoQr(null);
-                    setBoothOpen(true);
-                  }}
-                  className="zt-btn-ghost border border-border flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center hover:bg-muted"
-                >
-                  <span>🎥</span>
-                  <span>{isHindi ? "AI वीडियो" : "AI Video"}</span>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1 pt-1">
-                <span className="flex items-center gap-1.5 text-emerald-500 font-medium">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  {isHindi ? "कैमरा में लाइव साथ दिखेंगे" : "Real-time Live AR"}
-                </span>
                 <Link
                   to="/experience/$scene"
                   params={{ scene: c.id }}
                   search={boothMode ? { mode: "booth" } : undefined}
-                  className="hover:text-primary transition-colors font-medium flex items-center gap-0.5 text-primary"
+                  onClick={() =>
+                    localStorage.setItem("zuitar.deviceMode", boothMode ? "booth" : "personal")
+                  }
+                  className="zt-btn-ghost border border-border flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center"
                 >
-                  <span>{isHindi ? "कैमरा खोलें →" : "Open Camera →"}</span>
+                  <span>🎥</span>
+                  <span>{isHindi ? "वीडियो" : "Video"}</span>
                 </Link>
               </div>
             </div>
@@ -634,45 +501,19 @@ function Home() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2
-                  id="booth-title"
-                  className="text-xl sm:text-2xl font-bold flex items-center gap-2"
-                >
-                  <span>
-                    {selectedModalScene === "modi"
-                      ? "🇮🇳"
-                      : selectedModalScene === "yogi"
-                        ? "🚩"
-                        : "🪷"}
-                  </span>
-                  <span>
-                    {selectedModalScene === "modi"
-                      ? isHindi
-                        ? "पीएम नरेंद्र मोदी जी के साथ सेल्फ़ी"
-                        : "Selfie with PM Narendra Modi"
-                      : selectedModalScene === "yogi"
-                        ? isHindi
-                          ? "सीएम योगी आदित्यनाथ जी के साथ सेल्फ़ी"
-                          : "Selfie with CM Yogi Adityanath"
-                        : isHindi
-                          ? "आधिकारिक भाजपा लुक"
-                          : "Official BJP Look"}
-                  </span>
+                <h2 id="booth-title" className="text-2xl font-bold">
+                  {isHindi ? "फोटो बूथ डेमो" : "Photo booth demo"}
                 </h2>
-                <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-                  {boothMode
-                    ? isHindi
-                      ? "बूथ मोड: सेल्फ़ी लें और अपने फ़ोन में QR स्कैन करके डाउनलोड करें।"
-                      : "Booth Mode: Click selfie and scan QR to download directly to your phone."
-                    : isHindi
-                      ? "फ़ोन मोड: सेल्फ़ी लें या फोटो अपलोड करें, AI से तैयार करें व सीधे डाउनलोड करें।"
-                      : "Phone Mode: Click selfie or upload photo, generate AI photo/video, and download."}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isHindi
+                    ? "फोटो device पर रहती है; AI edit चुनने पर सेवा को भेजी जाएगी।"
+                    : "Your photo stays on this device unless you choose AI edit, which sends it to the service."}
                 </p>
               </div>
               <button
                 aria-label={isHindi ? "बंद करें" : "Close"}
                 onClick={() => setBoothOpen(false)}
-                className="zt-btn-ghost text-lg"
+                className="zt-btn-ghost"
               >
                 ✕
               </button>
@@ -681,47 +522,20 @@ function Home() {
             <div className="mt-5 flex min-h-64 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-black">
               {photo ? (
                 <div className="relative flex h-full w-full items-center justify-center">
-                  {videoData.state === "ready" && videoData.url ? (
-                    <video
-                      src={videoData.url}
-                      controls
-                      autoPlay
-                      loop
-                      playsInline
-                      className="max-h-[65vh] w-full object-contain rounded-xl"
-                    />
-                  ) : (
-                    <img
-                      src={displayedPhoto ?? photo}
-                      alt={isHindi ? "आपकी ली गई फोटो" : "Your captured photo"}
-                      className="max-h-[65vh] w-full object-contain"
-                    />
-                  )}
-                  {showAi && videoData.state !== "ready" && (
+                  <img
+                    src={displayedPhoto ?? photo}
+                    alt={isHindi ? "आपकी ली गई फोटो" : "Your captured photo"}
+                    className="max-h-[65vh] w-full object-contain"
+                  />
+                  {showAi && (
                     <span className="absolute left-3 top-3 rounded-full bg-warning px-3 py-1 text-xs font-bold text-background">
                       {isHindi ? "AI से बना" : "AI GENERATED"}
                     </span>
                   )}
-                  {videoData.state === "ready" && (
-                    <span className="absolute left-3 top-3 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
-                      {isHindi ? "AI वीडियो तैयार" : "AI VIDEO READY"}
-                    </span>
-                  )}
                   {aiBusy && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <span className="rounded-xl bg-overlay px-5 py-3 font-semibold">
+                      <span className="rounded-xl bg-overlay px-5 py-3">
                         {isHindi ? "AI photo बना रहा है…" : "Enhancing with AI…"}
-                      </span>
-                    </div>
-                  )}
-                  {videoData.state === "busy" && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-white p-4">
-                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-                      <span className="rounded-xl bg-overlay px-5 py-2 font-medium">
-                        {isHindi ? "AI वीडियो तैयार हो रहा है…" : "Generating AI Video…"}
-                        {typeof videoData.progress === "number"
-                          ? ` ${Math.round(videoData.progress)}%`
-                          : ""}
                       </span>
                     </div>
                   )}
@@ -731,55 +545,21 @@ function Home() {
                   {cameraError}
                 </p>
               ) : (
-                <div className="relative h-full w-full flex items-center justify-center overflow-hidden">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    onLoadedMetadata={() => setCameraReady(true)}
-                    className="max-h-[65vh] w-full object-contain"
-                  />
-                  {selectedModalScene === "yogi" && (
-                    <img
-                      src="/assets/yogi.png"
-                      alt="CM Yogi"
-                      className="absolute right-2 sm:right-6 bottom-0 max-h-[92%] object-contain pointer-events-none drop-shadow-2xl z-10 animate-in fade-in"
-                    />
-                  )}
-                  {selectedModalScene === "modi" && (
-                    <img
-                      src="/assets/modi.png"
-                      alt="PM Modi"
-                      className="absolute right-2 sm:right-6 bottom-0 max-h-[92%] object-contain pointer-events-none drop-shadow-2xl z-10 animate-in fade-in"
-                    />
-                  )}
-                  {selectedModalScene === "bjp" && (
-                    <img
-                      src="/assets/bjp.png"
-                      alt="BJP Emblem"
-                      className="absolute top-4 right-4 h-16 w-auto object-contain pointer-events-none drop-shadow-md z-10"
-                    />
-                  )}
-                  <Link
-                    to="/experience/$scene"
-                    params={{ scene: selectedModalScene }}
-                    search={boothMode ? { mode: "booth" } : undefined}
-                    className="absolute top-3 left-3 rounded-full bg-primary/90 hover:bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg flex items-center gap-1.5 z-20 backdrop-blur-sm"
-                  >
-                    <span>🌐</span>
-                    <span>
-                      {isHindi ? "फुल 3D AR ट्रैकिंग कैमरा" : "Full 3D AR Tracking Camera"}
-                    </span>
-                  </Link>
-                </div>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  onLoadedMetadata={() => setCameraReady(true)}
+                  className="max-h-[65vh] w-full object-contain"
+                />
               )}
             </div>
             <canvas ref={canvasRef} className="hidden" />
 
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               {photo ? (
-                modalQr || videoQr ? (
+                modalQr ? (
                   <div className="flex flex-col items-center gap-3 rounded-2xl bg-card p-5 text-center w-full">
                     <span className="text-3xl">📱</span>
                     <p className="text-xl font-bold">
@@ -787,23 +567,17 @@ function Home() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {isHindi
-                        ? "मोबाइल का कैमरा खोलकर QR स्कैन करें, फ़ोटो/वीडियो आपके फ़ोन में डाउनलोड हो जाएगी।"
-                        : "Open your mobile camera to scan and download to your phone gallery."}
+                        ? "कैमरा खोलकर स्कैन करें, फ़ोटो आपके फ़ोन में खुल जाएगी और डाउनलोड हो जाएगी।"
+                        : "Open your mobile camera to scan and download the photo to your phone."}
                     </p>
                     <img
-                      src={modalQr ?? videoQr!}
-                      alt="QR code to download"
+                      src={modalQr}
+                      alt="QR code to download your photo"
                       className="w-64 rounded-xl bg-foreground p-3 lg:w-72 shadow-lg"
                     />
                     <p className="text-xs text-muted-foreground">{t.expires}</p>
                     <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => {
-                          setModalQr(null);
-                          setVideoQr(null);
-                        }}
-                        className="zt-btn-ghost"
-                      >
+                      <button onClick={() => setModalQr(null)} className="zt-btn-ghost">
                         ✕ {t.close}
                       </button>
                       <button
@@ -812,10 +586,7 @@ function Home() {
                           setAiPhoto(null);
                           setShowAi(false);
                           setModalQr(null);
-                          setVideoQr(null);
-                          setVideoData({ state: "idle" });
                           setAiError(null);
-                          setVideoError(null);
                           setCameraError(null);
                         }}
                         className="zt-btn-secondary"
@@ -833,10 +604,7 @@ function Home() {
                           setAiPhoto(null);
                           setShowAi(false);
                           setModalQr(null);
-                          setVideoQr(null);
-                          setVideoData({ state: "idle" });
                           setAiError(null);
-                          setVideoError(null);
                           setCameraError(null);
                         }}
                         className="zt-btn-ghost text-xs sm:text-sm"
@@ -846,83 +614,46 @@ function Home() {
 
                       {!boothMode ? (
                         <>
-                          {videoData.state === "ready" && videoData.url ? (
-                            <a
-                              href={videoData.url}
-                              download="zuitar-ai-video.mp4"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="zt-btn-primary text-xs sm:text-sm flex items-center gap-1.5"
-                            >
-                              <span>⬇️</span>
-                              <span>{isHindi ? "वीडियो डाउनलोड" : "Download Video"}</span>
-                            </a>
-                          ) : (
-                            <a
-                              href={displayedPhoto ?? photo}
-                              download={showAi ? "zuitar-ai-photo.jpg" : "zuitar-photo-booth.jpg"}
-                              className="zt-btn-primary text-xs sm:text-sm flex items-center gap-1.5"
-                            >
-                              <span>⬇️</span>
-                              <span>{isHindi ? "फोटो डाउनलोड" : "Download photo"}</span>
-                            </a>
-                          )}
-
+                          <a
+                            href={displayedPhoto ?? photo}
+                            download={showAi ? "zuitar-ai-photo.jpg" : "zuitar-photo-booth.jpg"}
+                            className="zt-btn-primary text-xs sm:text-sm flex items-center gap-1.5"
+                          >
+                            <span>⬇️</span>
+                            <span>{isHindi ? "डाउनलोड" : "Download photo"}</span>
+                          </a>
                           <button
-                            onClick={() => {
-                              if (videoData.state === "ready" && videoData.url) {
-                                void QRCode.toDataURL(videoData.url, {
-                                  width: 512,
-                                  margin: 1,
-                                }).then(setVideoQr);
-                              } else {
-                                void makeModalQrWithPhoto();
-                              }
-                            }}
+                            onClick={() => void makeModalQrWithPhoto()}
                             disabled={modalQrBusy}
                             className="zt-btn-secondary text-xs sm:text-sm flex items-center gap-1.5"
                           >
                             <span>📱</span>
-                            <span>{modalQrBusy ? "..." : isHindi ? "QR कोड" : "Scan QR"}</span>
+                            <span>{modalQrBusy ? "..." : (isHindi ? "QR कोड" : "Scan QR")}</span>
                           </button>
                         </>
                       ) : (
                         <button
-                          onClick={() => {
-                            if (videoData.state === "ready" && videoData.url) {
-                              void QRCode.toDataURL(videoData.url, { width: 512, margin: 1 }).then(
-                                setVideoQr,
-                              );
-                            } else {
-                              void makeModalQrWithPhoto();
-                            }
-                          }}
+                          onClick={() => void makeModalQrWithPhoto()}
                           disabled={modalQrBusy}
-                          className="zt-btn-primary text-xs sm:text-sm flex items-center gap-1.5 px-5 py-2.5 font-bold shadow-md"
+                          className="zt-btn-primary text-xs sm:text-sm flex items-center gap-1.5 px-4 py-2 font-bold"
                         >
                           <span>📱</span>
                           <span>
                             {modalQrBusy
                               ? "..."
-                              : isHindi
-                                ? "फ़ोन में डाउनलोड करें (QR स्कैन)"
-                                : "Download to Phone (Scan QR)"}
+                              : (isHindi ? "फ़ोन में डाउनलोड (QR स्कैन)" : "Download to Phone (QR)")}
                           </span>
                         </button>
                       )}
 
-                      {aiPhoto && videoData.state !== "ready" && (
+                      {aiPhoto && (
                         <button
                           onClick={() => setShowAi((value) => !value)}
                           className="zt-btn-ghost border border-border text-xs sm:text-sm"
                         >
                           {showAi
-                            ? isHindi
-                              ? "असली फ़ोटो देखें"
-                              : "Show original"
-                            : isHindi
-                              ? "AI फ़ोटो देखें"
-                              : "Show AI photo"}
+                            ? (isHindi ? "असली फ़ोटो देखें" : "Show original")
+                            : (isHindi ? "AI फ़ोटो देखें" : "Show AI photo")}
                         </button>
                       )}
                     </div>
@@ -931,7 +662,7 @@ function Home() {
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-bold uppercase tracking-wider text-primary">
                           {isHindi
-                            ? "फीचर चुनें (मुलाक़ात, सेल्फ़ी, हाथ मिलाना, अंगवस्त्र, उपहार):"
+                            ? "फीचर चुनें (Meeting, Selfie, Handshake, Scarf, Gift):"
                             : "Choose Feature (Meeting, Selfie, Handshake, Scarf, Gift):"}
                         </p>
                       </div>
@@ -947,11 +678,7 @@ function Home() {
                               : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
-                          <img
-                            src="/assets/modi.png"
-                            alt="Modi"
-                            className="h-4 w-4 rounded-full object-cover"
-                          />
+                          <img src="/assets/modi.png" alt="Modi" className="h-4 w-4 rounded-full object-cover" />
                           <span>{isHindi ? "पीएम मोदी" : "PM Modi"}</span>
                         </button>
                         <button
@@ -963,11 +690,7 @@ function Home() {
                               : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
-                          <img
-                            src="/assets/yogi.png"
-                            alt="Yogi"
-                            className="h-4 w-4 rounded-full object-cover"
-                          />
+                          <img src="/assets/yogi.png" alt="Yogi" className="h-4 w-4 rounded-full object-cover" />
                           <span>{isHindi ? "सीएम योगी" : "CM Yogi"}</span>
                         </button>
                         <button
@@ -979,11 +702,7 @@ function Home() {
                               : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
-                          <img
-                            src="/assets/bjp.png"
-                            alt="BJP"
-                            className="h-4 w-4 rounded-full object-contain"
-                          />
+                          <img src="/assets/bjp.png" alt="BJP" className="h-4 w-4 rounded-full object-contain" />
                           <span>{isHindi ? "भाजपा लुक" : "BJP Look"}</span>
                         </button>
                       </div>
@@ -993,59 +712,18 @@ function Home() {
                         {selectedModalScene === "modi" && (
                           <>
                             {[
-                              {
-                                id: "meeting",
-                                icon: "💬",
-                                label: {
-                                  en: "Meeting with Modi",
-                                  hi: "मोदी जी से मुलाक़ात व चर्चा",
-                                },
-                              },
-                              {
-                                id: "selfie",
-                                icon: "🤳",
-                                label: { en: "Selfie with Modi", hi: "मोदी जी के साथ सेल्फ़ी" },
-                              },
-                              {
-                                id: "handshake",
-                                icon: "🤝",
-                                label: { en: "Handshake with Modi", hi: "मोदी जी से हाथ मिलाएँ" },
-                              },
-                              {
-                                id: "hug",
-                                icon: "🫂",
-                                label: { en: "Hug with Modi", hi: "मोदी जी से गले मिलें" },
-                              },
-                              {
-                                id: "scarf",
-                                icon: "🧣",
-                                label: {
-                                  en: "Saffron Patka / Angavastram",
-                                  hi: "भगवा पटका / अंगवस्त्र सम्मान",
-                                },
-                              },
-                              {
-                                id: "flag",
-                                icon: "🚩",
-                                label: {
-                                  en: "Flag Celebration with Modi",
-                                  hi: "मोदी जी के संग ध्वज उत्सव",
-                                },
-                              },
-                              {
-                                id: "gift",
-                                icon: "🎁",
-                                label: {
-                                  en: "Gift / Memento Presentation",
-                                  hi: "उपहार / स्मृति चिन्ह भेंट",
-                                },
-                              },
+                              { id: "selfie", icon: "🤳", label: { en: "Selfie with Modi", hi: "मोदी जी से सेल्फी" } },
+                              { id: "handshake", icon: "🤝", label: { en: "Handshake with Modi", hi: "मोदी जी से हाथ मिलाएँ" } },
+                              { id: "hug", icon: "🫂", label: { en: "Hug with Modi", hi: "मोदी जी से गले मिलें" } },
+                              { id: "meeting", icon: "💬", label: { en: "Meeting with Modi", hi: "मोदी जी से मुलाक़ात" } },
+                              { id: "scarf", icon: "🧣", label: { en: "Saffron Scarf", hi: "अंगवस्त्र सम्मान" } },
+                              { id: "gift", icon: "🎁", label: { en: "Gift / Memento", hi: "उपहार / स्मृति चिन्ह भेंट" } },
                             ].map((opt) => (
                               <button
                                 key={opt.id}
                                 type="button"
                                 onClick={() => setSelectedModalInteraction(opt.id)}
-                                disabled={aiBusy || videoData.state === "busy"}
+                                disabled={aiBusy}
                                 className={`flex items-center justify-between rounded-xl border p-2.5 text-xs sm:text-sm font-medium transition-all ${
                                   selectedModalInteraction === opt.id
                                     ? "border-primary bg-primary/15 text-primary font-bold ring-2 ring-primary/40"
@@ -1067,59 +745,18 @@ function Home() {
                         {selectedModalScene === "yogi" && (
                           <>
                             {[
-                              {
-                                id: "meeting",
-                                icon: "💬",
-                                label: {
-                                  en: "Meeting with Yogi",
-                                  hi: "योगी जी से मुलाक़ात व चर्चा",
-                                },
-                              },
-                              {
-                                id: "selfie",
-                                icon: "🤳",
-                                label: { en: "Selfie with Yogi", hi: "योगी जी के साथ सेल्फ़ी" },
-                              },
-                              {
-                                id: "handshake",
-                                icon: "🤝",
-                                label: { en: "Handshake with Yogi", hi: "योगी जी से हाथ मिलाएँ" },
-                              },
-                              {
-                                id: "hug",
-                                icon: "🫂",
-                                label: { en: "Hug with Yogi", hi: "योगी जी से गले मिलें" },
-                              },
-                              {
-                                id: "scarf",
-                                icon: "🧣",
-                                label: {
-                                  en: "Saffron Patka / Angavastram",
-                                  hi: "भगवा पटका / अंगवस्त्र सम्मान",
-                                },
-                              },
-                              {
-                                id: "flag",
-                                icon: "🚩",
-                                label: {
-                                  en: "Flag Celebration with Yogi",
-                                  hi: "योगी जी के संग ध्वज उत्सव",
-                                },
-                              },
-                              {
-                                id: "gift",
-                                icon: "🎁",
-                                label: {
-                                  en: "Gift / Memento Presentation",
-                                  hi: "उपहार / स्मृति चिन्ह भेंट",
-                                },
-                              },
+                              { id: "selfie", icon: "🤳", label: { en: "Selfie with Yogi", hi: "योगी जी से सेल्फी" } },
+                              { id: "handshake", icon: "🤝", label: { en: "Handshake with Yogi", hi: "योगी जी से हाथ मिलाएँ" } },
+                              { id: "hug", icon: "🫂", label: { en: "Hug with Yogi", hi: "योगी जी से गले मिलें" } },
+                              { id: "meeting", icon: "💬", label: { en: "Meeting with Yogi", hi: "योगी जी से मुलाक़ात" } },
+                              { id: "scarf", icon: "🧣", label: { en: "Saffron Scarf", hi: "अंगवस्त्र सम्मान" } },
+                              { id: "gift", icon: "🎁", label: { en: "Gift / Memento", hi: "उपहार / स्मृति चिन्ह भेंट" } },
                             ].map((opt) => (
                               <button
                                 key={opt.id}
                                 type="button"
                                 onClick={() => setSelectedModalInteraction(opt.id)}
-                                disabled={aiBusy || videoData.state === "busy"}
+                                disabled={aiBusy}
                                 className={`flex items-center justify-between rounded-xl border p-2.5 text-xs sm:text-sm font-medium transition-all ${
                                   selectedModalInteraction === opt.id
                                     ? "border-primary bg-primary/15 text-primary font-bold ring-2 ring-primary/40"
@@ -1141,37 +778,16 @@ function Home() {
                         {selectedModalScene === "bjp" && (
                           <>
                             {[
-                              {
-                                id: "selfie",
-                                icon: "🪷",
-                                label: { en: "BJP Lotus Look", hi: "भाजपा कमल लुक" },
-                              },
-                              {
-                                id: "scarf",
-                                icon: "🧣",
-                                label: { en: "Saffron Patka & Cap", hi: "भगवा पटका व टोपी लुक" },
-                              },
-                              {
-                                id: "flag",
-                                icon: "🚩",
-                                label: { en: "Official Flag Feature", hi: "आधिकारिक ध्वज फीचर" },
-                              },
-                              {
-                                id: "gift",
-                                icon: "🎁",
-                                label: { en: "Ceremonial Memento", hi: "स्मृति चिन्ह व सम्मान" },
-                              },
-                              {
-                                id: "event",
-                                icon: "✨",
-                                label: { en: "Grand Stage Event", hi: "भव्य मंच व उत्सव" },
-                              },
+                              { id: "selfie", icon: "🪷", label: { en: "BJP Lotus Look", hi: "भाजपा कमल लुक" } },
+                              { id: "scarf", icon: "🧣", label: { en: "Cap & Scarf Look", hi: "टोपी व पटका लुक" } },
+                              { id: "gift", icon: "🎁", label: { en: "Ceremonial Memento", hi: "स्मृति चिन्ह व सम्मान" } },
+                              { id: "event", icon: "🚩", label: { en: "BJP Flag Style", hi: "भाजपा ध्वज लुक" } },
                             ].map((opt) => (
                               <button
                                 key={opt.id}
                                 type="button"
                                 onClick={() => setSelectedModalInteraction(opt.id)}
-                                disabled={aiBusy || videoData.state === "busy"}
+                                disabled={aiBusy}
                                 className={`flex items-center justify-between rounded-xl border p-2.5 text-xs sm:text-sm font-medium transition-all ${
                                   selectedModalInteraction === opt.id
                                     ? "border-primary bg-primary/15 text-primary font-bold ring-2 ring-primary/40"
@@ -1191,48 +807,20 @@ function Home() {
                         )}
                       </div>
 
-                      {/* Primary Generate Buttons: Photo & Video */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void enhancePhoto(selectedModalScene, selectedModalInteraction)
-                          }
-                          disabled={aiBusy || videoData.state === "busy"}
-                          className="zt-btn-primary py-3 text-base font-bold flex items-center justify-center gap-2 shadow-lg"
-                        >
-                          <span>✦</span>
-                          <span>
-                            {aiBusy
-                              ? isHindi
-                                ? "AI फोटो तैयार कर रहा है…"
-                                : "Generating AI Photo…"
-                              : isHindi
-                                ? "AI फ़ोटो बनाएँ (Generate)"
-                                : "Generate AI Photo ✦"}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void generateVideo(selectedModalScene, selectedModalInteraction)
-                          }
-                          disabled={aiBusy || videoData.state === "busy"}
-                          className="zt-btn-ghost border-2 border-primary/60 py-3 text-base font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-primary/10"
-                        >
-                          <span>🎥</span>
-                          <span>
-                            {videoData.state === "busy"
-                              ? isHindi
-                                ? "AI वीडियो तैयार हो रहा है…"
-                                : "Generating Video…"
-                              : isHindi
-                                ? "AI वीडियो बनाएँ (Video)"
-                                : "Generate AI Video 🎥"}
-                          </span>
-                        </button>
-                      </div>
+                      {/* Primary Generate Button */}
+                      <button
+                        type="button"
+                        onClick={() => void enhancePhoto(selectedModalScene, selectedModalInteraction)}
+                        disabled={aiBusy}
+                        className="zt-btn-primary mt-1 py-3 text-base font-bold flex items-center justify-center gap-2 w-full shadow-lg"
+                      >
+                        <span>✦</span>
+                        <span>
+                          {aiBusy
+                            ? (isHindi ? "AI फोटो तैयार कर रहा है…" : "Generating AI Photo…")
+                            : (isHindi ? "AI फ़ोटो बनाएँ (Generate)" : "Generate AI Photo ✦")}
+                        </span>
+                      </button>
 
                       {dev && demoAiReady && (
                         <button
@@ -1302,13 +890,6 @@ function Home() {
                     {isHindi ? "दोबारा प्रयास करें (Retry)" : "Retry"}
                   </button>
                 )}
-              </div>
-            )}
-            {videoError && (
-              <div className="mt-3 flex flex-col items-center gap-2">
-                <p role="alert" className="text-center text-sm font-medium text-destructive">
-                  {videoError}
-                </p>
               </div>
             )}
           </section>

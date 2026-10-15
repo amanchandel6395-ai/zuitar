@@ -38,6 +38,14 @@ export type SceneContext = { config: PublicConfig; interaction: InteractionId };
 export type SceneRuntime = {
   update(t: TrackingFrame): void;
   setInteraction?(id: InteractionId): void;
+  setSlogan?(text: string): void;
+  setFilterOptions?(opts: {
+    cheekArt?: boolean;
+    flag?: boolean;
+    tilak?: boolean;
+    stole?: boolean;
+    slogan?: string;
+  }): void;
   reset?(): void;
   dispose?(): void;
   /** true when no authorized/approved asset is available (nothing is rendered; UI shows setup message) */
@@ -45,7 +53,7 @@ export type SceneRuntime = {
 };
 
 export type SceneConfig = {
-  id: "yogi" | "modi" | "bjp";
+  id: "yogi" | "modi" | "bjp" | "both";
   tracking: TrackingMode;
   anchor: AnchorKind;
   occlusion: "segmentation" | "none";

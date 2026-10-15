@@ -1,5 +1,10 @@
 import type { SceneConfig } from "./types";
-import { companionRuntime, lookRuntime, worldCompanion } from "./placeholders";
+import {
+  companionRuntime,
+  doubleCompanionRuntime,
+  lookRuntime,
+  worldCompanion,
+} from "./placeholders";
 
 const companion = (id: "yogi" | "modi"): SceneConfig => ({
   id,
@@ -16,6 +21,18 @@ const companion = (id: "yogi" | "modi"): SceneConfig => ({
 export const YOGI_SCENE = companion("yogi");
 export const MODI_SCENE = companion("modi");
 
+export const BOTH_SCENE: SceneConfig = {
+  id: "both",
+  tracking: "face+body",
+  anchor: "beside-user",
+  occlusion: "segmentation",
+  camera: { default: "user", worldAR: false },
+  effects: { backgroundTint: null },
+  capture: { countdown: 3 },
+  build: (layers, ctx) =>
+    doubleCompanionRuntime(layers, ctx, ctx.config.characters.yogi, ctx.config.characters.modi),
+};
+
 export const BJP_LOOK_SCENE: SceneConfig = {
   id: "bjp",
   tracking: "face+body",
@@ -27,6 +44,11 @@ export const BJP_LOOK_SCENE: SceneConfig = {
   build: (layers, ctx) => lookRuntime(layers, ctx),
 };
 
-export const SCENES = { yogi: YOGI_SCENE, modi: MODI_SCENE, bjp: BJP_LOOK_SCENE } as const;
+export const SCENES = {
+  yogi: YOGI_SCENE,
+  modi: MODI_SCENE,
+  both: BOTH_SCENE,
+  bjp: BJP_LOOK_SCENE,
+} as const;
 export type SceneId = keyof typeof SCENES;
 export const isSceneId = (s: string): s is SceneId => s in SCENES;

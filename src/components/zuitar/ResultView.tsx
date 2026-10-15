@@ -75,18 +75,10 @@ export function ResultView({
           {
             id: "meeting",
             icon: "💬",
-            label: { en: "Meeting with Modi", hi: "मोदी जी से मुलाक़ात व चर्चा" },
+            label: { en: "Meeting with Modi", hi: "मोदी जी से मुलाक़ात" },
           },
-          {
-            id: "scarf",
-            icon: "🧣",
-            label: { en: "Saffron Patka / Angavastram", hi: "भगवा पटका / अंगवस्त्र सम्मान" },
-          },
-          {
-            id: "gift",
-            icon: "🎁",
-            label: { en: "Presenting Gift / Memento", hi: "स्मृति चिन्ह / उपहार भेंट" },
-          },
+          { id: "scarf", icon: "🧣", label: { en: "Saffron Scarf Honor", hi: "अंगवस्त्र सम्मान" } },
+          { id: "gift", icon: "🎁", label: { en: "Presenting Gift / Memento", hi: "स्मृति चिन्ह / उपहार भेंट" } },
         ]
       : sceneId === "yogi"
         ? [
@@ -104,12 +96,12 @@ export function ResultView({
             {
               id: "meeting",
               icon: "💬",
-              label: { en: "Meeting with Yogi", hi: "योगी जी से मुलाक़ात व चर्चा" },
+              label: { en: "Meeting with Yogi", hi: "योगी जी से मुलाक़ात" },
             },
             {
               id: "scarf",
               icon: "🧣",
-              label: { en: "Saffron Patka / Angavastram", hi: "भगवा पटका / अंगवस्त्र सम्मान" },
+              label: { en: "Saffron Scarf Honor", hi: "अंगवस्त्र सम्मान" },
             },
             {
               id: "gift",
@@ -119,21 +111,9 @@ export function ResultView({
           ]
         : [
             { id: "selfie", icon: "🪷", label: { en: "BJP Lotus Look", hi: "भाजपा कमल लुक" } },
-            {
-              id: "scarf",
-              icon: "🧣",
-              label: { en: "Saffron Patka & Cap", hi: "भगवा पटका व टोपी लुक" },
-            },
-            {
-              id: "gift",
-              icon: "🎁",
-              label: { en: "Ceremonial Memento", hi: "स्मृति चिन्ह व सम्मान" },
-            },
-            {
-              id: "event",
-              icon: "🚩",
-              label: { en: "Celebration Stage & Flag", hi: "भव्य मंच व ध्वज लुक" },
-            },
+            { id: "scarf", icon: "🧣", label: { en: "BJP Cap & Scarf", hi: "भाजपा टोपी व पटका" } },
+            { id: "gift", icon: "🎁", label: { en: "Ceremonial Memento", hi: "स्मृति चिन्ह व सम्मान" } },
+            { id: "event", icon: "🚩", label: { en: "BJP Flag Style", hi: "भाजपा ध्वज लुक" } },
           ];
   const [video, setVideo] = useState<{
     state: "idle" | "busy" | "ready";
@@ -320,18 +300,11 @@ export function ResultView({
             <div className="grid grid-cols-2 gap-2.5">
               {!boothMode ? (
                 <>
-                  <button
-                    onClick={download}
-                    className="zt-btn-primary flex items-center justify-center gap-1.5"
-                  >
+                  <button onClick={download} className="zt-btn-primary flex items-center justify-center gap-1.5">
                     <span>⬇️</span>
                     <span>{t.download}</span>
                   </button>
-                  <button
-                    onClick={makeQr}
-                    disabled={qrBusy}
-                    className="zt-btn-secondary flex items-center justify-center gap-1.5"
-                  >
+                  <button onClick={makeQr} disabled={qrBusy} className="zt-btn-secondary flex items-center justify-center gap-1.5">
                     <span>📱</span>
                     <span>{qrBusy ? t.creating : t.qr}</span>
                   </button>
@@ -346,23 +319,15 @@ export function ResultView({
                   <span>
                     {qrBusy
                       ? t.creating
-                      : isHindi
-                        ? "फ़ोन में डाउनलोड करें (QR स्कैन)"
-                        : "Download to Phone (Scan QR)"}
+                      : (isHindi ? "फ़ोन में डाउनलोड करें (QR स्कैन)" : "Download to Phone (Scan QR)")}
                   </span>
                 </button>
               )}
-              <button
-                onClick={onRetake}
-                className="zt-btn-secondary flex items-center justify-center gap-1.5"
-              >
+              <button onClick={onRetake} className="zt-btn-secondary flex items-center justify-center gap-1.5">
                 <span>🔄</span>
                 <span>{t.retake}</span>
               </button>
-              <button
-                onClick={onHome}
-                className="zt-btn-secondary flex items-center justify-center gap-1.5"
-              >
+              <button onClick={onHome} className="zt-btn-secondary flex items-center justify-center gap-1.5">
                 <span>🏠</span>
                 <span>{t.home}</span>
               </button>
@@ -415,12 +380,8 @@ export function ResultView({
                   <span>✦</span>
                   <span>
                     {aiBusy
-                      ? isHindi
-                        ? "AI फोटो तैयार कर रहा है…"
-                        : "Generating AI Photo…"
-                      : isHindi
-                        ? "AI फ़ोटो बनाएँ (Generate)"
-                        : "Generate AI Photo ✦"}
+                      ? (isHindi ? "AI फोटो तैयार कर रहा है…" : "Generating AI Photo…")
+                      : (isHindi ? "AI फ़ोटो बनाएँ (Generate)" : "Generate AI Photo ✦")}
                   </span>
                 </button>
               </div>
@@ -469,31 +430,15 @@ export function ResultView({
                     {t.aiGenerated}
                   </span>
                 </div>
-                {boothMode ? (
-                  <button
-                    onClick={async () => {
-                      if (!video.url) return;
-                      const q = await QRCode.toDataURL(video.url, { width: 640, margin: 1 });
-                      setQr(q);
-                    }}
-                    className="zt-btn-primary text-center font-bold"
-                  >
-                    📱{" "}
-                    {isHindi
-                      ? "फ़ोन में वीडियो डाउनलोड करें (QR स्कैन)"
-                      : "Download Video to Phone (QR)"}
-                  </button>
-                ) : (
-                  <a
-                    href={video.url}
-                    download="zuitar-ai-video.mp4"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="zt-btn-secondary text-center"
-                  >
-                    {t.downloadVideo}
-                  </a>
-                )}
+                <a
+                  href={video.url}
+                  download="zuitar-ai-video.mp4"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="zt-btn-secondary text-center"
+                >
+                  {t.downloadVideo}
+                </a>
               </div>
             )}
             {videoMsg && <p className="text-center text-destructive">{videoMsg}</p>}

@@ -8,7 +8,7 @@ import { DebugPanel, deviceLabel, type DebugRow } from "@/components/ar/DebugPan
 import { WorldAR } from "@/components/ar/WorldAR";
 import { KIOSK, useDevMode, useIdleReset } from "@/lib/kiosk";
 import { getPublicConfig } from "@/lib/config.functions";
-import { toPublicDefault, type InteractionId, type PublicConfig } from "@/lib/config";
+import type { InteractionId, PublicConfig } from "@/lib/config";
 import { LangToggleLabel, useLang } from "@/lib/i18n";
 import { ResultView } from "./ResultView";
 
@@ -21,10 +21,10 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
   const [dev] = useDevMode();
   const [lang, setLang, t] = useLang();
   const fetchConfig = useServerFn(getPublicConfig);
-  const [config, setConfig] = useState<PublicConfig>(toPublicDefault);
+  const [config, setConfig] = useState<PublicConfig | null>(null);
   const [configError, setConfigError] = useState(false);
   const [caps, setCaps] = useState<Caps | null>(null);
-  const [phase, setPhase] = useState<Phase>("live");
+  const [phase, setPhase] = useState<Phase>("intro");
   const [facing, setFacing] = useState<"user" | "environment">(scene.camera.default);
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,16 +45,12 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
     setConfigError(false);
     fetchConfig()
       .then((c) => {
-        if (c) {
-          setConfig(c);
-          const first = c.interactions.find((i) => i.enabled);
-          if (first && !c.interactions.some((i) => i.enabled && i.id === interactionRef.current))
-            setInteraction(first.id);
-        }
+        setConfig(c);
+        const first = c.interactions.find((i) => i.enabled);
+        if (first && !c.interactions.some((i) => i.enabled && i.id === interactionRef.current))
+          setInteraction(first.id);
       })
-      .catch(() => {
-        setConfigError(false);
-      });
+      .catch(() => setConfigError(true));
   }, [fetchConfig]);
 
   const [boothMode, setBoothMode] = useState(false);
@@ -216,8 +212,8 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
         sceneId={sceneId}
         interaction={interaction}
         allowAi={!!config?.ai.imageReady || !!config?.ai.imageEnabled}
-        allowVideo={!!config?.ai.videoReady || !!config?.ai.videoEnabled}
-        videoConfigured={!!config?.ai.videoEnabled}
+        allowVideo={sceneId === "bjp" && !!config?.ai.videoReady}
+        videoConfigured={sceneId === "bjp" && !!config?.ai.videoEnabled}
         onRetake={() => {
           setPhoto(null);
           setPhase("live");
