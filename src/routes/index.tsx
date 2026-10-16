@@ -319,6 +319,13 @@ function Home() {
           >
             {LangToggleLabel(lang)}
           </button>
+          <Link
+            to="/admin"
+            className="zt-btn-ghost border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs px-3 py-1.5 flex items-center gap-1 font-semibold rounded-full transition-all"
+            title="3D Cutout Studio & Admin"
+          >
+            ⚙️ {lang === "hi" ? "3D स्टूडियो" : "3D Studio"}
+          </Link>
           <div className="flex rounded-full border border-border bg-overlay/50 p-0.5 text-xs" aria-label={t.deviceMode}>
             <button
               type="button"

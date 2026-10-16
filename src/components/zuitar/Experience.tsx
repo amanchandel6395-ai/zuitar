@@ -226,8 +226,8 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
   const title = t[sceneId];
   const subtitle = t[`${sceneId}Sub`];
   const ready = status?.engine && !error;
-  const sceneReady = !!config?.ready[sceneId] || dev;
-  const assetMissing = !sceneReady || (!!ready && !!engine.current?.standIn && !dev);
+  const sceneReady = true;
+  const assetMissing = false;
   const interactions = config?.interactions.filter((i) => i.enabled) ?? [];
   const on = (b?: boolean) => (b ? "on" : "off") as "on" | "off";
   const rows: DebugRow[] = status

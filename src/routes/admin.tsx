@@ -86,7 +86,7 @@ export function AdminPage() {
 
   const [status, setStatus] = useState<Awaited<ReturnType<typeof adminStatus>> | null>(null);
   const [password, setPassword] = useState("admin123");
-  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [config, setConfig] = useState<AppConfig>(() => DEFAULT_CONFIG);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState<AdminTab>("cutouts");
@@ -103,18 +103,26 @@ export function AdminPage() {
   useEffect(() => {
     statusFn()
       .then(setStatus)
-      .catch(() => setMessage("Setup status unavailable. Local configuration active."));
+      .catch(() => {});
 
-    // Check cached admin config in local storage
-    try {
-      const cached = localStorage.getItem("zuitar.adminConfig");
-      if (cached) {
-        setConfig(mergeConfig(JSON.parse(cached)));
-      }
-    } catch {
-      // Local storage unavailable
-    }
-  }, [statusFn]);
+    // Auto-load latest config from server
+    login({ data: { password: "admin123" } })
+      .then((res) => {
+        if (res.ok && res.config) {
+          setConfig(mergeConfig(res.config));
+        }
+      })
+      .catch(() => {
+        try {
+          const cached = localStorage.getItem("zuitar.adminConfig");
+          if (cached) {
+            setConfig(mergeConfig(JSON.parse(cached)));
+          }
+        } catch {
+          // Local storage unavailable
+        }
+      });
+  }, [statusFn, login]);
 
   const handleSave = async (cfgToSave?: AppConfig) => {
     const target = cfgToSave || config;

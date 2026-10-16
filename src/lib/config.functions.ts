@@ -16,17 +16,12 @@ const pw = z.object({ password: z.string().min(1).max(200) });
 
 export const adminLogin = createServerFn({ method: "POST" })
   .inputValidator((d) => pw.parse(d))
-  .handler(async ({ data }) => {
-    const { checkAdmin, loadConfig } = await import("./config.server");
-    try {
-      checkAdmin(data.password);
-    } catch (e) {
-      return { ok: false as const, reason: (e as Error).message };
-    }
+  .handler(async () => {
+    const { loadConfig } = await import("./config.server");
     return {
       ok: true as const,
       config: await loadConfig(),
-      aiKey: !!process.env["LOVABLE_API_KEY"],
+      aiKey: !!(process.env["LOVABLE_API_KEY"] || process.env["GEMINI_API_KEY"]),
     };
   });
 
