@@ -33,7 +33,7 @@ export function RoomARView({
   const [error, setError] = useState<string | null>(null);
 
   // Position offset (in 3D world units: x, y, z)
-  const posOffset = useRef({ x: 0, y: -0.6, z: -2.2 });
+  const posOffset = useRef({ x: 0, y: -1.45, z: -2.6 });
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
 
@@ -89,49 +89,78 @@ export function RoomARView({
     };
   }, [facing, isHindi]);
 
-  // Create Standee Mesh Helper
-  const createStandeeMesh = useCallback(
-    (textureUrl: string, width = 1.1, height = 1.75) => {
-      const group = new THREE.Group();
+  // Create Standee Mesh Helper — real-world height in metres, width follows the image's
+  // own aspect ratio so the leader is never stretched or squashed. Origin = feet on the floor.
+  const createStandeeMesh = useCallback((textureUrl: string, height = 1.75) => {
+    const group = new THREE.Group();
 
-      // Floor Shadow
-      const shadowCanvas = document.createElement("canvas");
-      shadowCanvas.width = 128;
-      shadowCanvas.height = 64;
-      const sctx = shadowCanvas.getContext("2d")!;
-      const grad = sctx.createRadialGradient(64, 32, 4, 64, 32, 58);
-      grad.addColorStop(0, "rgba(0, 0, 0, 0.65)");
-      grad.addColorStop(0.5, "rgba(0, 0, 0, 0.25)");
-      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      sctx.fillStyle = grad;
-      sctx.fillRect(0, 0, 128, 64);
-      const shadowTex = new THREE.CanvasTexture(shadowCanvas);
-      const shadow = new THREE.Mesh(
-        new THREE.PlaneGeometry(width * 1.15, 0.6),
-        new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }),
-      );
-      shadow.rotation.x = -Math.PI / 2;
-      shadow.position.y = -height / 2 + 0.01;
-      group.add(shadow);
+    const shadowCanvas = document.createElement("canvas");
+    shadowCanvas.width = 128;
+    shadowCanvas.height = 64;
+    const sctx = shadowCanvas.getContext("2d")!;
+    const grad = sctx.createRadialGradient(64, 32, 4, 64, 32, 58);
+    grad.addColorStop(0, "rgba(0, 0, 0, 0.6)");
+    grad.addColorStop(0.5, "rgba(0, 0, 0, 0.22)");
+    grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    sctx.fillStyle = grad;
+    sctx.fillRect(0, 0, 128, 64);
+    const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+    const shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 0.45),
+      new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.01;
+    group.add(shadow);
 
-      // Leader Figure Standee
-      const tex = new THREE.TextureLoader().load(textureUrl);
+    const mat = new THREE.MeshBasicMaterial({
+      transparent: true,
+      side: THREE.FrontSide,
+      alphaTest: 0.02,
+      opacity: 0,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+    group.add(plane);
+
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin("anonymous");
+    loader.load(textureUrl, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
-      const plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(width, height),
-        new THREE.MeshBasicMaterial({
-          map: tex,
-          transparent: true,
-          side: THREE.DoubleSide,
-          alphaTest: 0.02,
-        }),
-      );
-      group.add(plane);
+      const img = tex.image as { width?: number; height?: number } | undefined;
+      const aspect = img?.width && img?.height ? img.width / img.height : 0.45;
+      const w = height * aspect;
+      plane.geometry.dispose();
+      plane.geometry = new THREE.PlaneGeometry(w, height);
+      plane.position.y = height / 2;
+      shadow.scale.set(Math.max(0.6, w * 1.2) / 0.9, 1, 1);
+      mat.map = tex;
+      mat.opacity = 1;
+      mat.needsUpdate = true;
+    });
 
-      return group;
-    },
-    [],
-  );
+    return group;
+  }, []);
+
+  // Live transform values kept in refs so moving/resizing never restarts the 3D scene.
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+  const rotationRef = useRef(rotation);
+  rotationRef.current = rotation;
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchStart = useRef<{ dist: number; scale: number } | null>(null);
+
+  const DEFAULT_POS = { x: 0, y: -1.45, z: -2.6 };
+  const resetPlacement = () => {
+    posOffset.current = { ...DEFAULT_POS };
+    setScale(1);
+    setRotation(0);
+  };
+  const nudge = (dx: number, dy: number, dz: number) => {
+    const p = posOffset.current;
+    p.x = THREE.MathUtils.clamp(p.x + dx, -2.5, 2.5);
+    p.y = THREE.MathUtils.clamp(p.y + dy, -2.5, 0.5);
+    p.z = THREE.MathUtils.clamp(p.z + dz, -8, -1);
+  };
 
   // Initialize Three.js Scene
   useEffect(() => {
@@ -169,6 +198,9 @@ export function RoomARView({
     const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     const bgMat = new THREE.MeshBasicMaterial({ map: vTex, depthTest: false, depthWrite: false });
     const bgQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
+    // Front camera: mirror only the camera picture, never the leader, so faces, caps and
+    // flag text always stay the right way round.
+    if (facing === "user") bgQuad.scale.x = -1;
     bgScene.add(bgQuad);
 
     // Standee Group in 3D Space
@@ -180,19 +212,14 @@ export function RoomARView({
     const rebuildStandee = () => {
       standeeGroup.clear();
       if (character === "yogi") {
-        const yogiMesh = createStandeeMesh(yogiAsset, 0.85, 1.75);
-        standeeGroup.add(yogiMesh);
+        standeeGroup.add(createStandeeMesh(yogiAsset, 1.75));
       } else if (character === "modi") {
-        const modiMesh = createStandeeMesh(modiAsset, 0.72, 0.96);
-        modiMesh.position.y = 0.40;
-        standeeGroup.add(modiMesh);
+        standeeGroup.add(createStandeeMesh(modiAsset, 1.7));
       } else {
-        // Both Leaders: CM Yogi on left, PM Modi on right
-        const yogiMesh = createStandeeMesh(yogiAsset, 0.85, 1.75);
-        yogiMesh.position.x = -0.65;
-        const modiMesh = createStandeeMesh(modiAsset, 0.72, 0.96);
-        modiMesh.position.x = 0.65;
-        modiMesh.position.y = 0.40;
+        const yogiMesh = createStandeeMesh(yogiAsset, 1.75);
+        yogiMesh.position.x = -0.5;
+        const modiMesh = createStandeeMesh(modiAsset, 1.7);
+        modiMesh.position.x = 0.5;
         standeeGroup.add(yogiMesh, modiMesh);
       }
     };
@@ -209,8 +236,8 @@ export function RoomARView({
           posOffset.current.y,
           posOffset.current.z,
         );
-        standeeGroupRef.current.scale.setScalar(scale);
-        standeeGroupRef.current.rotation.y = THREE.MathUtils.degToRad(rotation);
+        standeeGroupRef.current.scale.setScalar(scaleRef.current);
+        standeeGroupRef.current.rotation.y = THREE.MathUtils.degToRad(rotationRef.current);
       }
 
       renderer.clear();
@@ -239,28 +266,48 @@ export function RoomARView({
       bgMat.dispose();
       bgQuad.geometry.dispose();
     };
-  }, [streamReady, character, scale, rotation, yogiAsset, modiAsset, createStandeeMesh]);
+  }, [streamReady, character, facing, yogiAsset, modiAsset, createStandeeMesh]);
 
-  // Touch & Drag Handling to reposition character in room
+  // Touch & Drag Handling: one finger moves, two fingers pinch to resize
   const handlePointerDown = (e: React.PointerEvent) => {
-    isDragging.current = true;
-    dragStart.current = { x: e.clientX, y: e.clientY };
+    if ((e.target as HTMLElement).closest("button,input,label")) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [p1, p2] = [...pointers.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      pinchStart.current = { dist: Math.hypot(p1.x - p2.x, p1.y - p2.y), scale: scaleRef.current };
+      isDragging.current = false;
+    } else {
+      isDragging.current = true;
+      dragStart.current = { x: e.clientX, y: e.clientY };
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2 && pinchStart.current) {
+      const [p1, p2] = [...pointers.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      const next = THREE.MathUtils.clamp(
+        (pinchStart.current.scale * d) / Math.max(1, pinchStart.current.dist),
+        0.5,
+        1.8,
+      );
+      setScale(Math.round(next * 100) / 100);
+      return;
+    }
     if (!isDragging.current) return;
-    const dx = (e.clientX - dragStart.current.x) * 0.003;
-    const dy = (e.clientY - dragStart.current.y) * 0.003;
+    const k = 0.0015 * Math.abs(posOffset.current.z);
+    const dx = (e.clientX - dragStart.current.x) * k;
+    const dy = (e.clientY - dragStart.current.y) * k;
     dragStart.current = { x: e.clientX, y: e.clientY };
-
-    posOffset.current.x += facing === "user" ? -dx : dx;
-    posOffset.current.y -= dy;
-    posOffset.current.y = THREE.MathUtils.clamp(posOffset.current.y, -1.8, 0.8);
-    posOffset.current.x = THREE.MathUtils.clamp(posOffset.current.x, -2.5, 2.5);
+    nudge(dx, -dy, 0);
   };
 
-  const handlePointerUp = () => {
-    isDragging.current = false;
+  const handlePointerUp = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinchStart.current = null;
+    if (pointers.current.size === 0) isDragging.current = false;
   };
 
   // Capture Shutter
@@ -297,9 +344,7 @@ export function RoomARView({
       <video ref={videoRef} className="hidden" playsInline muted autoPlay />
       <canvas
         ref={canvasRef}
-        className={`h-full w-full object-cover transition-transform duration-200 ${
-          facing === "user" ? "-scale-x-100" : ""
-        }`}
+        className="h-full w-full object-cover"
       />
 
       {/* Top Navigation & Character Switcher Toolbar */}
@@ -374,8 +419,8 @@ export function RoomARView({
       <div className="pointer-events-none absolute inset-x-0 top-32 z-10 flex justify-center">
         <span className="rounded-full border border-white/10 bg-black/50 px-3.5 py-1 text-[11px] font-medium text-slate-300 backdrop-blur-md">
           {isHindi
-            ? "👆 रूम में कहीं भी ड्रैग करके खड़ा करें"
-            : "👆 Drag on screen to place leader in your room"}
+            ? "👆 एक उंगली से खिसकाएँ · दो उंगलियों से छोटा-बड़ा करें"
+            : "👆 Drag to move · pinch with two fingers to resize"}
         </span>
       </div>
 
@@ -395,25 +440,47 @@ export function RoomARView({
 
       {/* Bottom Shutter & Controls Dock */}
       <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {/* Scale & Rotate Quick Adjustments */}
-        <div className="mx-auto flex items-center gap-4 rounded-xl border border-white/10 bg-black/60 px-4 py-1.5 text-xs text-slate-300 backdrop-blur-md">
-          <span>{isHindi ? "आकार (Size):" : "Size:"}</span>
+        {/* Placement controls: size, distance, height, turn, reset */}
+        <div className="mx-auto flex flex-wrap items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-xs text-slate-200 backdrop-blur-md">
+          <span>{isHindi ? "आकार" : "Size"}</span>
           <input
             type="range"
-            min="0.6"
-            max="1.6"
-            step="0.05"
+            min="0.5"
+            max="1.8"
+            step="0.01"
             value={scale}
+            aria-label={isHindi ? "आकार" : "Size"}
             onChange={(e) => setScale(parseFloat(e.target.value))}
             className="h-1.5 w-24 accent-amber-500"
           />
+          {[
+            { k: "near", l: isHindi ? "पास" : "Closer", f: () => nudge(0, 0, 0.25) },
+            { k: "far", l: isHindi ? "दूर" : "Farther", f: () => nudge(0, 0, -0.25) },
+            { k: "up", l: "▲", f: () => nudge(0, 0.08, 0) },
+            { k: "down", l: "▼", f: () => nudge(0, -0.08, 0) },
+          ].map((b) => (
+            <button
+              key={b.k}
+              type="button"
+              onClick={b.f}
+              className="rounded border border-white/20 px-2 py-1 hover:bg-white/10"
+            >
+              {b.l}
+            </button>
+          ))}
           <button
             type="button"
-            onClick={() => setRotation((r) => (r + 45) % 360)}
-            className="flex items-center gap-1 rounded border border-white/20 px-2 py-0.5 hover:bg-white/10"
+            onClick={() => setRotation((r) => (r + 15) % 360)}
+            className="rounded border border-white/20 px-2 py-1 hover:bg-white/10"
           >
-            <span>🔄</span>
-            <span>{rotation}°</span>
+            🔄 {rotation}°
+          </button>
+          <button
+            type="button"
+            onClick={resetPlacement}
+            className="rounded border border-white/20 px-2 py-1 hover:bg-white/10"
+          >
+            {isHindi ? "रीसेट" : "Reset"}
           </button>
         </div>
 

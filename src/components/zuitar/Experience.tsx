@@ -30,7 +30,8 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
       const p = new URLSearchParams(window.location.search);
       if (p.get("room") === "1") return "world";
     }
-    return "intro";
+    // Tapping a feature opens the camera straight away (upload + 3D room buttons are on the camera screen).
+    return "live";
   });
   const [facing, setFacing] = useState<"user" | "environment">(scene.camera.default);
   const [status, setStatus] = useState<EngineStatus | null>(null);
@@ -228,8 +229,8 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
         sceneId={sceneId}
         interaction={interaction}
         allowAi={!!config?.ai.imageReady || !!config?.ai.imageEnabled}
-        allowVideo={sceneId === "bjp" && !!config?.ai.videoReady}
-        videoConfigured={sceneId === "bjp" && !!config?.ai.videoEnabled}
+        allowVideo={!!config?.ai.videoReady}
+        videoConfigured={!!config?.ai.videoEnabled}
         onRetake={() => {
           setPhoto(null);
           setPhase("live");

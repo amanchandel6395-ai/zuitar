@@ -198,7 +198,7 @@ export function ResultView({
     }
   };
 
-  const makeVideo = async () => {
+  const makeVideo = async (style: "walk" | "car" | "plain" = "plain") => {
     setVideo({ state: "busy", progress: null });
     setVideoMsg(null);
     const fail = (m: string) => {
@@ -210,7 +210,8 @@ export function ResultView({
       const fd = new FormData();
       fd.append("image", photo, "capture.jpg");
       fd.append("scene", sceneId);
-      fd.append("interaction", interaction);
+      fd.append("interaction", selectedInteraction);
+      fd.append("style", style);
       const res = await fetch("/api/video", { method: "POST", body: fd });
       const j = (await res.json().catch(() => ({}))) as { id?: string; code?: string };
       if (!res.ok || !j.id) return fail(codeMsg(j.code, "video"));
@@ -397,8 +398,24 @@ export function ResultView({
                 {showAi ? "Show original photo" : "Show AI-generated version"}
               </button>
             )}
-            {allowVideo && video.state === "idle" && (
-              <button onClick={makeVideo} className="zt-btn-ghost border border-border">
+            {allowVideo && video.state === "idle" && sceneId !== "bjp" && (
+              <>
+                <button
+                  onClick={() => makeVideo("walk")}
+                  className="zt-btn-ghost border border-border"
+                >
+                  ▶ Walk with CM · 8 sec
+                </button>
+                <button
+                  onClick={() => makeVideo("car")}
+                  className="zt-btn-ghost border border-border"
+                >
+                  ▶ काफ़िले की गाड़ी वाला वीडियो · 8 sec
+                </button>
+              </>
+            )}
+            {allowVideo && video.state === "idle" && sceneId === "bjp" && (
+              <button onClick={() => makeVideo("plain")} className="zt-btn-ghost border border-border">
                 ▶ {t.makeVideo}
               </button>
             )}
@@ -448,7 +465,7 @@ export function ResultView({
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 p-3">
             <p className="text-center text-sm font-medium text-destructive">{msg}</p>
             {allowAi && !aiPhoto && (
-              <button onClick={enhance} disabled={aiBusy} className="zt-btn-secondary text-xs">
+              <button onClick={() => void enhance()} disabled={aiBusy} className="zt-btn-secondary text-xs">
                 {t.retry}
               </button>
             )}

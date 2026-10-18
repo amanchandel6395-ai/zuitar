@@ -61,6 +61,19 @@ export function getEnhancePrompt(scene: string, interaction: string, cfg: AppCon
   return "Enhance this photo with clean, dignified lighting and natural colors while preserving all identities.";
 }
 
+/** Extra rules so leaders and party material are never distorted, mirrored or upside down. */
+export function accuracySuffix(scene: string): string {
+  const common =
+    " The final image must be upright and correctly oriented: never upside down, never mirrored, never rotated, no extra or missing limbs, natural human proportions. Any text, logo or emblem must read the correct way round.";
+  if (scene === "yogi")
+    return `${common} Chief Minister Yogi Adityanath must look exactly like the reference image (same face, saffron attire); do not invent a different face.`;
+  if (scene === "modi")
+    return `${common} Prime Minister Narendra Modi must look exactly like the reference image (same face, white beard, spectacles, attire); do not invent a different face.`;
+  if (scene === "bjp")
+    return `${common} Copy the BJP cap, saffron-green scarf, lotus emblem and flag exactly as in the reference image: same colours, same lotus symbol, same design. The cap sits correctly on the head with the lotus emblem facing forward.`;
+  return common;
+}
+
 /** Structured server-side logger that prevents leaking sensitive keys or private URLs. */
 function logAiEvent(
   level: "info" | "warn" | "error",
@@ -72,7 +85,7 @@ function logAiEvent(
     category?: string;
     status?: number;
     fallbackTriggered?: boolean;
-    errorSummary?: string;
+    errorSummary?: string | undefined;
   },
 ) {
   const payload = JSON.stringify({
@@ -237,17 +250,20 @@ export async function handleEnhanceRequest(request: Request): Promise<Response> 
     return Response.json({ code: "not_configured" }, { status: 503 });
   }
 
-  const prompt = getEnhancePrompt(scene, interaction, cfg);
+  const prompt = `${getEnhancePrompt(scene, interaction, cfg)}${accuracySuffix(scene)}`;
 
-  // Pass matching reference image when available
-  let refUrl: string | null = null;
-  if (scene === "yogi") {
-    refUrl =
-      "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/d3114b63-feb9-44d2-af69-a176900950e9/dc5afdb0fe2b72a63ddddacca5ad7fc1.png";
-  } else if (scene === "bjp") {
-    refUrl =
-      "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/4434408b-2a36-4cc4-84a4-952d49ac2dd5/BJP-Logo-700x394.png";
-  }
+  // Reference image from the repo's own approved assets, so the leader's face, cap, scarf
+  // and the BJP flag/lotus match the real material exactly.
+  const origin = new URL(request.url).origin;
+  const refPath =
+    scene === "yogi"
+      ? "/assets/yogi.png"
+      : scene === "modi"
+        ? "/assets/modi.png"
+        : scene === "bjp"
+          ? "/assets/bjp.png"
+          : null;
+  const refUrl: string | null = refPath ? `${origin}${refPath}` : null;
 
   let refBlob: Blob | null = null;
   if (refUrl) {

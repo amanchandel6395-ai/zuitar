@@ -7,7 +7,21 @@ const MODEL = "google/gemini-omni-1.1-flash";
 const SCENES = ["modi", "yogi", "bjp", "photo", "demo"];
 const ID_RE = /^[A-Za-z0-9_-]{6,128}$/;
 
-function getVideoPrompt(scene: string, interaction: string): string {
+const LEADER: Record<string, string> = {
+  yogi: "Chief Minister Yogi Adityanath in his saffron attire, looking exactly like the second image",
+  modi: "Prime Minister Narendra Modi with white beard and spectacles, looking exactly like the second image",
+};
+const SAFE =
+  " Keep everyone's face, body and clothing exactly as in the photos, upright and correctly oriented, never mirrored or distorted. Audio: crowd ambience and soft festive music, no dialogue. No on-screen text.";
+
+function getVideoPrompt(scene: string, interaction: string, style: string): string {
+  const leader = LEADER[scene];
+  if (leader && style === "walk") {
+    return `The person from the photo walks side by side with ${leader} along a decorated road at a public rally, both smiling and waving to supporters, slow tracking shot from the front, single continuous vertical shot, no scene cuts.${SAFE}`;
+  }
+  if (leader && style === "car") {
+    return `${leader} steps out of a white official convoy SUV, greets the person from the photo with folded hands, and then the two sit together in the back seat of the SUV smiling at the camera, gentle handheld camera, single continuous vertical shot, no scene cuts.${SAFE}`;
+  }
   if (interaction === "flag") {
     return "The person in the photo smiles and waves proudly beside the official celebration flag wearing the ceremonial saffron stole, single continuous vertical shot, gentle push-in, celebratory festive lighting with lotus motifs, authentic natural motion.";
   }
@@ -45,6 +59,7 @@ export const Route = createFileRoute("/api/video")({
         const image = form.get("image");
         const scene = String(form.get("scene") ?? "");
         const interaction = String(form.get("interaction") ?? "selfie");
+        const style = String(form.get("style") ?? "plain");
         if (
           !(image instanceof File) ||
           image.size > 10_000_000 ||
@@ -59,10 +74,24 @@ export const Route = createFileRoute("/api/video")({
           return Response.json({ code: "not_configured" }, { status: 503 });
         }
         const input: unknown[] = [
-          { type: "text", text: getVideoPrompt(scene, interaction) },
+          { type: "text", text: getVideoPrompt(scene, interaction, style) },
           { type: "image", data: await b64(image), mime_type: image.type || "image/jpeg" },
         ];
-        const dur = Math.min(10, Math.max(3, Math.round(cfg.ai.videoDuration || 6)));
+        if (LEADER[scene] && (style === "walk" || style === "car")) {
+          try {
+            const ref = await fetch(`${new URL(request.url).origin}/assets/${scene}.png`);
+            if (ref.ok) {
+              const blob = await ref.blob();
+              input.push({ type: "image", data: await b64(blob), mime_type: "image/png" });
+            }
+          } catch {
+            // reference is optional; prompt still describes the leader
+          }
+        }
+        const dur =
+          style === "walk" || style === "car"
+            ? 8
+            : Math.min(10, Math.max(3, Math.round(cfg.ai.videoDuration || 6)));
         const res = await fetch(`${GATEWAY}/v1/videos`, {
           method: "POST",
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },

@@ -1,10 +1,12 @@
 import type { SceneConfig } from "./types";
-import {
-  companionRuntime,
-  doubleCompanionRuntime,
-  lookRuntime,
-  worldCompanion,
-} from "./placeholders";
+import type { SceneRuntime } from "./types";
+import { worldCompanion } from "./placeholders";
+
+/**
+ * Live camera shows only the plain camera picture: no leader cut-out, cap, scarf or flag is
+ * drawn over the selfie. The chosen look is created afterwards by AI from the captured photo.
+ */
+const plainRuntime = (): SceneRuntime => ({ update() {} });
 
 const companion = (id: "yogi" | "modi"): SceneConfig => ({
   id,
@@ -14,7 +16,7 @@ const companion = (id: "yogi" | "modi"): SceneConfig => ({
   camera: { default: "user", worldAR: true },
   effects: { backgroundTint: null },
   capture: { countdown: 3 },
-  build: (layers, ctx) => companionRuntime(layers, ctx, ctx.config.characters[id]),
+  build: plainRuntime,
   buildWorld: (ctx) => worldCompanion(ctx, ctx.config.characters[id]),
 });
 
@@ -29,8 +31,7 @@ export const BOTH_SCENE: SceneConfig = {
   camera: { default: "user", worldAR: false },
   effects: { backgroundTint: null },
   capture: { countdown: 3 },
-  build: (layers, ctx) =>
-    doubleCompanionRuntime(layers, ctx, ctx.config.characters.yogi, ctx.config.characters.modi),
+  build: plainRuntime,
 };
 
 export const BJP_LOOK_SCENE: SceneConfig = {
@@ -41,7 +42,7 @@ export const BJP_LOOK_SCENE: SceneConfig = {
   camera: { default: "user", worldAR: false },
   effects: { backgroundTint: null },
   capture: { countdown: 3 },
-  build: (layers, ctx) => lookRuntime(layers, ctx),
+  build: plainRuntime,
 };
 
 export const SCENES = {
