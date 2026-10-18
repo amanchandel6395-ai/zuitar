@@ -15,7 +15,7 @@ const SEG_MODEL =
   "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite";
 const POSE_MODEL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-const FOV = 63;
+const FOV = 74;
 
 export type EngineStatus = {
   stage: string;
@@ -149,15 +149,23 @@ export async function startFrontEngine(opts: {
         uMask: { value: maskTex },
         uBg: { value: null as THREE.Texture | null },
         uBgOn: { value: 0 },
+        uMirrored: { value: facing === "user" ? 1.0 : 0.0 },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
       fragmentShader: `uniform sampler2D uVideo; uniform sampler2D uMask; uniform sampler2D uBg; uniform float uBgOn;
-      uniform vec3 uTint; uniform float uAmt; varying vec2 vUv;
-      void main(){ vec3 c = texture2D(uVideo, vUv).rgb; float g = smoothstep(0.0, 1.0, vUv.y);
-      vec3 t = mix(uTint, vec3(0.07,0.54,0.24), 1.0 - g); c = mix(c, c*0.5 + t*0.6, uAmt);
-      if (uBgOn > 0.5) { float m = smoothstep(0.35, 0.75, texture2D(uMask, vec2(vUv.x, 1.0 - vUv.y)).r);
-        c = mix(texture2D(uBg, vUv).rgb, c, m); }
-      gl_FragColor = vec4(c, 1.0); }`,
+      uniform vec3 uTint; uniform float uAmt; uniform float uMirrored; varying vec2 vUv;
+      void main(){
+        vec2 uv = uMirrored > 0.5 ? vec2(1.0 - vUv.x, vUv.y) : vUv;
+        vec3 c = texture2D(uVideo, uv).rgb;
+        float g = smoothstep(0.0, 1.0, vUv.y);
+        vec3 t = mix(uTint, vec3(0.07,0.54,0.24), 1.0 - g);
+        c = mix(c, c*0.5 + t*0.6, uAmt);
+        if (uBgOn > 0.5) {
+          float m = smoothstep(0.35, 0.75, texture2D(uMask, vec2(uv.x, 1.0 - uv.y)).r);
+          c = mix(texture2D(uBg, vUv).rgb, c, m);
+        }
+        gl_FragColor = vec4(c, 1.0);
+      }`,
     });
     const bgScene = new THREE.Scene();
     bgScene.add(new THREE.Mesh(quad, bgMat));
@@ -279,7 +287,7 @@ export async function startFrontEngine(opts: {
       distanceCm: null,
       dt: 0,
       view,
-      mirrored: false,
+      mirrored: facing === "user",
       unproject,
       project,
     };
@@ -379,8 +387,6 @@ export async function startFrontEngine(opts: {
       renderer.clear();
       renderer.render(bgScene, ortho);
       renderer.render(backScene, cam);
-      renderer.clearDepth();
-      renderer.render(personScene, ortho);
       renderer.render(frontScene, cam);
 
       frames++;
@@ -442,7 +448,7 @@ export async function startFrontEngine(opts: {
           out.toBlob(
             (b) => (b ? resolve(b) : reject(new Error("capture failed"))),
             "image/jpeg",
-            0.92,
+            0.95,
           ),
         );
       },

@@ -6,6 +6,7 @@ import { startFrontEngine, type EngineHandle, type EngineStatus } from "@/ar/eng
 import { detectCapabilities, type Caps } from "@/ar/capabilities";
 import { DebugPanel, deviceLabel, type DebugRow } from "@/components/ar/DebugPanel";
 import { WorldAR } from "@/components/ar/WorldAR";
+import { RoomARView } from "@/components/ar/RoomARView";
 import { KIOSK, useDevMode, useIdleReset } from "@/lib/kiosk";
 import { getPublicConfig } from "@/lib/config.functions";
 import type { InteractionId, PublicConfig } from "@/lib/config";
@@ -24,7 +25,13 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [configError, setConfigError] = useState(false);
   const [caps, setCaps] = useState<Caps | null>(null);
-  const [phase, setPhase] = useState<Phase>("intro");
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("room") === "1") return "world";
+    }
+    return "intro";
+  });
   const [facing, setFacing] = useState<"user" | "environment">(scene.camera.default);
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -195,12 +202,21 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
   };
 
   if (phase === "world" && config) {
-    const build = scene.buildWorld;
+    const yogiCutout =
+      config.characters.yogi.poses.walk || config.characters.yogi.poses.selfie || "/assets/yogi.png";
+    const modiCutout =
+      config.characters.modi.poses.walk || config.characters.modi.poses.selfie || "/assets/modi.png";
     return (
-      <WorldAR
-        buildSubject={build ? () => build({ config, interaction }) : undefined}
+      <RoomARView
+        initialCharacter={sceneId === "modi" ? "modi" : sceneId === "both" ? "both" : "yogi"}
+        yogiAsset={yogiCutout}
+        modiAsset={modiCutout}
+        onCapture={(b) => {
+          setPhoto(b);
+          setPhase("result");
+        }}
         onExit={() => setPhase("live")}
-        showDebug={dev}
+        onHome={goHome}
       />
     );
   }
@@ -508,14 +524,17 @@ export function Experience({ sceneId }: { sceneId: SceneId }) {
                 />
               </div>
               <div className="flex justify-end gap-3">
-                {scene.camera.worldAR &&
-                  sceneReady &&
-                  caps?.worldAR &&
-                  facing === "environment" && (
-                    <button onClick={() => setPhase("world")} className="zt-btn-round text-xs">
-                      {t.room}
-                    </button>
-                  )}
+                {sceneId !== "bjp" && (
+                  <button
+                    type="button"
+                    onClick={() => setPhase("world")}
+                    className="flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/20 px-3.5 py-2 text-xs font-bold text-amber-300 shadow-md backdrop-blur-md transition-all hover:bg-amber-500/30 active:scale-95"
+                    title={lang === "hi" ? "3D रूम में खड़े करें" : "Place in 3D Room"}
+                  >
+                    <span>🏛️</span>
+                    <span>{lang === "hi" ? "3D रूम" : "3D Room"}</span>
+                  </button>
+                )}
                 <button onClick={flip} aria-label={t.flip} className="zt-btn-round">
                   ⟲
                 </button>

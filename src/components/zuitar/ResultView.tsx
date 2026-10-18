@@ -85,28 +85,28 @@ export function ResultView({
             {
               id: "selfie",
               icon: "🤳",
-              label: { en: "Selfie with CM Yogi", hi: "सीएम योगी जी के साथ सेल्फ़ी" },
+              label: { en: "Selfie with CM Yogi Ji", hi: "सीएम योगी जी के साथ सेल्फ़ी" },
             },
             {
               id: "handshake",
               icon: "🤝",
-              label: { en: "Handshake with Yogi", hi: "योगी जी से हाथ मिलाएँ" },
+              label: { en: "Handshake with CM Yogi Ji", hi: "सीएम योगी जी से हाथ मिलाएँ" },
             },
-            { id: "hug", icon: "🫂", label: { en: "Hug with Yogi", hi: "योगी जी से गले मिलें" } },
+            { id: "hug", icon: "🫂", label: { en: "Hug with CM Yogi Ji", hi: "सीएम योगी जी से गले मिलें" } },
             {
               id: "meeting",
               icon: "💬",
-              label: { en: "Meeting with Yogi", hi: "योगी जी से मुलाक़ात" },
+              label: { en: "Meeting with CM Yogi Ji", hi: "सीएम योगी जी से मुलाक़ात" },
             },
             {
               id: "scarf",
               icon: "🧣",
-              label: { en: "Saffron Scarf Honor", hi: "अंगवस्त्र सम्मान" },
+              label: { en: "Saffron Scarf Honor", hi: "सीएम योगी जी द्वारा अंगवस्त्र सम्मान" },
             },
             {
               id: "gift",
               icon: "🎁",
-              label: { en: "Presenting Gift / Memento", hi: "स्मृति चिन्ह / उपहार भेंट" },
+              label: { en: "Presenting Gift / Memento", hi: "सीएम योगी जी को स्मृति चिन्ह / उपहार भेंट" },
             },
           ]
         : [

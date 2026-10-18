@@ -39,7 +39,7 @@ export const BJP_LOOK_SCENE: SceneConfig = {
   anchor: "head",
   occlusion: "segmentation",
   camera: { default: "user", worldAR: false },
-  effects: { backgroundTint: [1.0, 0.55, 0.12] },
+  effects: { backgroundTint: null },
   capture: { countdown: 3 },
   build: (layers, ctx) => lookRuntime(layers, ctx),
 };

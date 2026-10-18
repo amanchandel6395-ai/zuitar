@@ -188,11 +188,15 @@ function authorizedContent(ch: PubChar, onReady: (o: THREE.Object3D) => void, on
 
   const setupDimensions = (w: number, h: number) => {
     const aspect = (w || 1) / Math.max(1, h || 1);
-    const isPortrait = aspect > 0.65;
-    const baseHeight = ch.heightCm ?? (isPortrait ? 95 : FIG_H);
+    // Torso crop (like modi.png, aspect > 0.62) vs full body (like yogi.png, aspect <= 0.62)
+    const isTorso = aspect > 0.62;
+    // For full body: 175cm. For torso: 68cm so head height is exactly 23cm (authentic 1:1 life size).
+    const baseHeight = ch.heightCm ?? (isTorso ? 68 : FIG_H);
     const figHeight = baseHeight * (ch.scale || 1);
-    const headOffset = (isPortrait ? 10 : HEAD_FROM_TOP) + (ch.offsetY || 0);
     const width = figHeight * aspect;
+    const posY = isTorso
+      ? (ch.offsetY || 0) - figHeight * 0.22
+      : HEAD_FROM_TOP + (ch.offsetY || 0) - figHeight / 2;
 
     if (!plane) {
       // 1. Soft realistic ground drop-shadow for 3D floor grounding
@@ -208,11 +212,11 @@ function authorizedContent(ch: PubChar, onReady: (o: THREE.Object3D) => void, on
       sctx.fillRect(0, 0, 128, 64);
       const sTex = new THREE.CanvasTexture(sCanvas);
       shadowMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(width * 0.95, 26),
+        new THREE.PlaneGeometry(width * 0.95, isTorso ? 16 : 26),
         new THREE.MeshBasicMaterial({ map: sTex, transparent: true, depthWrite: false }),
       );
       shadowMesh.rotation.x = -Math.PI / 2.3;
-      shadowMesh.position.set(ch.offsetX || 0, headOffset - figHeight + 2, 4);
+      shadowMesh.position.set(ch.offsetX || 0, posY - figHeight / 2 + 2, 4);
       holder.add(shadowMesh);
 
       // 2. Realistic 3D clear acrylic glass depth rim mesh behind figure
@@ -228,7 +232,7 @@ function authorizedContent(ch: PubChar, onReady: (o: THREE.Object3D) => void, on
         }),
       );
       rimMesh.scale.set(width, figHeight, 1);
-      rimMesh.position.set(ch.offsetX || 0, headOffset - figHeight / 2, -bevel);
+      rimMesh.position.set(ch.offsetX || 0, posY, -bevel);
       holder.add(rimMesh);
 
       // 3. Main transparent 3D cutout / video standee
@@ -240,14 +244,14 @@ function authorizedContent(ch: PubChar, onReady: (o: THREE.Object3D) => void, on
     }
 
     plane.scale.set(width, figHeight, 1);
-    plane.position.set(ch.offsetX || 0, headOffset - figHeight / 2, 0);
+    plane.position.set(ch.offsetX || 0, posY, 0);
     if (rimMesh) {
       rimMesh.scale.set(width, figHeight, 1);
-      rimMesh.position.set(ch.offsetX || 0, headOffset - figHeight / 2, -(ch.depthBevel || 0.8));
+      rimMesh.position.set(ch.offsetX || 0, posY, -(ch.depthBevel || 0.8));
     }
     if (shadowMesh) {
-      shadowMesh.scale.set(width * 0.95, 26, 1);
-      shadowMesh.position.set(ch.offsetX || 0, headOffset - figHeight + 2, 4);
+      shadowMesh.scale.set(width * 0.95, isTorso ? 16 : 26, 1);
+      shadowMesh.position.set(ch.offsetX || 0, posY - figHeight / 2 + 2, 4);
     }
   };
 
@@ -639,14 +643,14 @@ export function companionRuntime(
 
   const target = new THREE.Vector3();
   const tmp = new THREE.Vector3();
-  let side: 1 | -1 | 0 = 0;
+  let side: 1 | -1 | 0 = 1;
   let alpha = 1;
   let lost = 0;
   let snap = true;
-  const showSlogan = true;
-  let showCheekArt = true;
-  let showFlag = true;
-  let showTilak = true;
+  const showSlogan = false;
+  let showCheekArt = false;
+  let showFlag = false;
+  let showTilak = false;
   let elapsed = 0;
 
   const runtime: SceneRuntime = {
@@ -683,8 +687,8 @@ export function companionRuntime(
       auth?.tick(t.dt);
       elapsed += t.dt;
 
-      // The shared canvas is unmirrored; artwork retains its original orientation.
-      if (content.children[0]) content.scale.x = Math.abs(content.scale.y) * (t.mirrored ? -1 : 1);
+      // Artwork retains its authentic upright orientation
+      if (content.children[0]) content.scale.x = Math.abs(content.scale.y);
 
       // Face tracking for Cheek stickers and Forehead Tilak
       if (t.faceMatrix && (showCheekArt || showTilak)) {
@@ -705,35 +709,28 @@ export function companionRuntime(
         const hp = t.project(t.head);
         tmp.copy(t.head).x += 16;
         const headW = Math.abs(t.project(tmp).u - hp.u); // user's head width in normalized units
-        // automatic side choice: the side with more free room (with hysteresis)
-        const roomR = uMax - hp.u;
-        const roomL = hp.u - uMin;
-        if (side === 0) side = roomR >= roomL ? 1 : -1;
-        else if (side === 1 && roomL > roomR * 1.6) side = -1;
-        else if (side === -1 && roomR > roomL * 1.6) side = 1;
-        const z = t.head.z * 1.05; // a little behind the user's shoulder
-        const gap = Math.max(0.18, headW * 2.2);
-        const margin = Math.max(0.12, headW * 1.1);
-        let u = hp.u + side * gap + (ch.offsetX || 0) / 100;
+        const headU = t.mirrored ? 1.0 - hp.u : hp.u;
+        const z = t.head.z * 1.05; // slightly behind shoulder
+        const gap = Math.max(0.24, headW * 1.8);
+        const margin = Math.max(0.08, headW * 0.8);
+        let u = headU + gap + (ch.offsetX || 0) / 100;
+        if (u > uMax - margin) u = headU - gap + (ch.offsetX || 0) / 100;
         u = THREE.MathUtils.clamp(u, uMin + margin, uMax - margin);
-        let v = hp.v + (ch.offsetY || 0) / 100;
-        v = THREE.MathUtils.clamp(v, vMin + 0.1, vMax - 0.15);
+        let v = hp.v + 0.05 + (ch.offsetY || 0) / 100;
+        v = THREE.MathUtils.clamp(v, vMin + 0.08, vMax - 0.12);
         target.copy(t.unproject(u, v, z));
         if (snap || !root.visible) root.position.copy(target);
-        else root.position.lerp(target, Math.min(1, t.dt * 7));
+        else root.position.lerp(target, Math.min(1, t.dt * 6));
         snap = false;
-        root.lookAt(t.head.x * 0.25, root.position.y, 0);
+        // Keep upright facing straight toward the camera
+        root.rotation.set(0, 0, 0);
         root.visible = true;
       } else {
         lost += t.dt;
-        // Natural default position standing beside user while tracking initializes or if head is obscured
-        const defaultSide = side === 0 ? 1 : side;
-        const defaultU =
-          defaultSide === 1
-            ? THREE.MathUtils.lerp(0.5, uMax, 0.6)
-            : THREE.MathUtils.lerp(uMin, 0.5, 0.4);
-        const defaultV = THREE.MathUtils.lerp(vMin, vMax, 0.38);
-        const defaultZ = -70; // 70cm distance
+        // Natural default position standing beside user at comfortable selfie distance
+        const defaultU = THREE.MathUtils.lerp(0.5, uMax, 0.45);
+        const defaultV = THREE.MathUtils.lerp(vMin, vMax, 0.42);
+        const defaultZ = -75;
         target.copy(
           t.unproject(
             defaultU + (ch.offsetX || 0) / 100,
@@ -744,7 +741,7 @@ export function companionRuntime(
         if (snap || !root.visible) root.position.copy(target);
         else root.position.lerp(target, Math.min(1, t.dt * 4));
         snap = false;
-        root.lookAt(0, root.position.y, 0);
+        root.rotation.set(0, 0, 0);
         root.visible = true;
       }
       alpha = 1;
@@ -837,9 +834,9 @@ export function doubleCompanionRuntime(
   const targetModi = new THREE.Vector3();
   const tmp = new THREE.Vector3();
   let snap = true;
-  let showCheekArt = true;
-  let showFlag = true;
-  let showTilak = true;
+  let showCheekArt = false;
+  let showFlag = false;
+  let showTilak = false;
   let elapsed = 0;
 
   return {
@@ -888,9 +885,8 @@ export function doubleCompanionRuntime(
 
       cornerFlag.update(t, elapsed, showFlag);
 
-      const sx = t.mirrored ? -1 : 1;
-      if (yogiGroup.children[0]) yogiGroup.scale.x = Math.abs(yogiGroup.scale.y) * sx;
-      if (modiGroup.children[0]) modiGroup.scale.x = Math.abs(modiGroup.scale.y) * sx;
+      if (yogiGroup.children[0]) yogiGroup.scale.x = Math.abs(yogiGroup.scale.y);
+      if (modiGroup.children[0]) modiGroup.scale.x = Math.abs(modiGroup.scale.y);
 
       const { uMin, uMax, vMin, vMax } = t.view;
 
@@ -898,17 +894,18 @@ export function doubleCompanionRuntime(
         const hp = t.project(t.head);
         tmp.copy(t.head).x += 16;
         const headW = Math.abs(t.project(tmp).u - hp.u);
-        const gap = Math.max(0.22, headW * 2.3);
+        const headU = t.mirrored ? 1.0 - hp.u : hp.u;
+        const gap = Math.max(0.24, headW * 2.0);
         const z = t.head.z * 1.05;
 
         // Yogi on Left (-1)
-        const uL = THREE.MathUtils.clamp(hp.u - gap, uMin + 0.1, uMax - 0.1);
-        const vL = THREE.MathUtils.clamp(hp.v, vMin + 0.1, vMax - 0.15);
+        const uL = THREE.MathUtils.clamp(headU - gap, uMin + 0.08, uMax - 0.08);
+        const vL = THREE.MathUtils.clamp(hp.v + 0.05, vMin + 0.08, vMax - 0.12);
         targetYogi.copy(t.unproject(uL, vL, z));
 
         // Modi on Right (+1)
-        const uR = THREE.MathUtils.clamp(hp.u + gap, uMin + 0.1, uMax - 0.1);
-        const vR = THREE.MathUtils.clamp(hp.v, vMin + 0.1, vMax - 0.15);
+        const uR = THREE.MathUtils.clamp(headU + gap, uMin + 0.08, uMax - 0.08);
+        const vR = THREE.MathUtils.clamp(hp.v + 0.05, vMin + 0.08, vMax - 0.12);
         targetModi.copy(t.unproject(uR, vR, z));
 
         if (snap || !root.visible) {
@@ -919,8 +916,8 @@ export function doubleCompanionRuntime(
           modiGroup.position.lerp(targetModi, Math.min(1, t.dt * 7));
         }
         snap = false;
-        yogiGroup.lookAt(t.head.x * 0.2, yogiGroup.position.y, 0);
-        modiGroup.lookAt(t.head.x * 0.2, modiGroup.position.y, 0);
+        yogiGroup.rotation.set(0, 0, 0);
+        modiGroup.rotation.set(0, 0, 0);
       } else {
         const uL = THREE.MathUtils.lerp(uMin, 0.5, 0.35);
         const uR = THREE.MathUtils.lerp(0.5, uMax, 0.65);
@@ -1010,9 +1007,10 @@ export function lookRuntime(
   headAnchor.visible = false;
   layers.front.add(headAnchor);
 
-  // Forehead Saffron Tilak
+  // Forehead Saffron Tilak: delicate, positioned high on forehead away from eyes
   const tilak = createTilakMesh();
-  tilak.mesh.position.set(0, 3.8, 3.8);
+  tilak.mesh.position.set(0, 5.2, 2.2);
+  tilak.mesh.scale.set(0.5, 0.5, 1);
   headAnchor.add(tilak.mesh);
 
   const shoulderAnchor = new THREE.Group();
@@ -1044,9 +1042,9 @@ export function lookRuntime(
     }
     const rot = THREE.MathUtils.degToRad(it.rotation);
     if (it.anchor === "head") {
-      // Cheeks lotus sticker or head accessory
+      // Cheeks lotus sticker: tasteful subtle badge placed on outer cheek
       const isCheek = it.kind === "sticker" || it.id.includes("cheek");
-      const w = isCheek ? 20 * (it.scale || 0.35) : 20 * (it.scale || 1);
+      const w = isCheek ? 4.5 * (it.scale || 1) : 6 * (it.scale || 1);
       const m = imagePlane(
         it.asset,
         it,
@@ -1055,13 +1053,13 @@ export function lookRuntime(
           loaded++;
         },
       );
-      const baseY = isCheek ? 0 : 9;
-      m.position.set(it.offsetX, baseY + it.offsetY, 3.8);
+      const posX = it.offsetX < 0 ? -4.2 : 4.2;
+      m.position.set(posX, -1.6 + (it.offsetY || 0), 2.5);
       m.rotation.z = rot;
       headAnchor.add(m);
       mirrorables.push(m);
     } else if (it.anchor === "shoulders") {
-      const w = it.scale || 1;
+      const w = 14 * (it.scale || 1);
       const m = imagePlane(
         it.asset,
         it,
@@ -1070,7 +1068,7 @@ export function lookRuntime(
           loaded++;
         },
       );
-      m.position.set(it.offsetX / 100, -0.25 + it.offsetY / 100, 0.25);
+      m.position.set(it.offsetX / 10, -1.2 + it.offsetY / 10, 0.25);
       m.rotation.z = rot;
       shoulderAnchor.add(m);
       mirrorables.push(m);

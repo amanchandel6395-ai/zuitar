@@ -151,8 +151,8 @@ export const HINDI_SLOGANS: SloganItem[] = [
   },
   {
     id: "yogi",
-    text: "मैं योगी जी के साथ हूँ",
-    sub: "Main Yogi Ji Ke Sath Hoon",
+    text: "मैं सीएम योगी जी के साथ हूँ",
+    sub: "Main CM Yogi Ji Ke Sath Hoon",
     icon: "🚩",
     enabled: true,
   },

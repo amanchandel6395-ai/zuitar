@@ -15,19 +15,17 @@ export function getInitialConfig(): AppConfig {
   const cfg = mergeConfig(DEFAULT_CONFIG);
   const now = "2026-10-09T10:36:04Z";
 
-  // Configure Yogi with authentic image
-  const yogiCutout =
-    "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/d3114b63-feb9-44d2-af69-a176900950e9/dc5afdb0fe2b72a63ddddacca5ad7fc1.png";
+  // Configure Yogi with authentic transparent cutout
+  const yogiCutout = "/assets/yogi.png";
   cfg.characters.yogi.enabled = true;
   cfg.characters.yogi.authorized = true;
   cfg.characters.yogi.authorizedAt = now;
-  cfg.characters.yogi.permissionNote =
-    "Authorized transparent cutout archive (dc5afdb0fe2b72a63ddddacca5ad7fc1.png)";
+  cfg.characters.yogi.permissionNote = "Authorized transparent cutout archive (/assets/yogi.png)";
   cfg.characters.yogi.poses = { selfie: yogiCutout, walk: yogiCutout };
-  cfg.characters.yogi.approvedAssets = { [yogiCutout]: now, "/assets/yogi.png": now };
+  cfg.characters.yogi.approvedAssets = { [yogiCutout]: now };
   cfg.characters.yogi.thumbnail = "/assets/yogi.png";
 
-  // Modi: Configured with official portrait and enabled
+  // Modi: Configured with official transparent cutout and enabled
   const modiImage = "/assets/modi.png";
   cfg.characters.modi.enabled = true;
   cfg.characters.modi.authorized = true;
@@ -38,10 +36,8 @@ export function getInitialConfig(): AppConfig {
   cfg.characters.modi.thumbnail = modiImage;
 
   // BJP Look: Configure authentic lotus emblem and flag
-  const bjpLogo =
-    "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/4434408b-2a36-4cc4-84a4-952d49ac2dd5/BJP-Logo-700x394.png";
-  const bjpFlag =
-    "https://id-preview--c8145deb-25b6-47a7-b2da-36518fcf6dba.lovable.app/__l5e/assets-v1/c7bf7c98-15cf-4bb9-b7b5-e6a8d626359f/bjp-flag-with-text-1704.png";
+  const bjpLogo = "/assets/lotus_badge.png";
+  const bjpFlag = "/assets/bjp.png";
 
   cfg.bjp = [
     {

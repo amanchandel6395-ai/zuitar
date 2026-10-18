@@ -43,10 +43,10 @@ const cards: {
     kicker: "selfieWith",
     tone: "from-amber-600/30 via-orange-500/15 to-card",
     image: "/assets/yogi.png",
-    title: { en: "Selfie with CM Yogi", hi: "सेल्फ़ी सीएम योगी के साथ" },
-    badge: { en: "CM Yogi Adityanath", hi: "मुख्यमंत्री योगी आदित्यनाथ" },
+    title: { en: "Selfie with CM Yogi Ji", hi: "सेल्फ़ी सीएम योगी जी के साथ" },
+    badge: { en: "CM Yogi Ji", hi: "सीएम योगी जी" },
     desc: {
-      en: "Live selfie, handshake, meeting, scarf & gift with CM Yogi",
+      en: "Live selfie, handshake, meeting, scarf & gift with CM Yogi Ji",
       hi: "लाइव सेल्फ़ी, हाथ मिलाना, मुलाक़ात, अंगवस्त्र व उपहार भेंट",
     },
   },
@@ -387,55 +387,86 @@ function Home() {
               <p className="mt-1.5 text-xs text-muted-foreground md:text-sm">{c.desc[lang]}</p>
             </div>
 
-            {/* Action Buttons: Live Selfie, Upload Photo, Video */}
+            {/* Action Buttons: Booth Mode vs Phone Mode */}
             <div className="mt-2 flex flex-col gap-2 pt-3 border-t border-border/60">
               <div className={`grid ${boothMode ? "grid-cols-2" : "grid-cols-3"} gap-2`}>
-                <Link
-                  to="/experience/$scene"
-                  params={{ scene: c.id }}
-                  search={boothMode ? { mode: "booth" } : undefined}
-                  onClick={() =>
-                    localStorage.setItem("zuitar.deviceMode", boothMode ? "booth" : "personal")
-                  }
-                  className="zt-btn-primary flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center"
-                >
-                  <span>🤳</span>
-                  <span>{boothMode ? (isHindi ? "सेल्फ़ी लें" : "Take Selfie") : (isHindi ? "लाइव सेल्फ़ी" : "Live Selfie")}</span>
-                </Link>
-
-                {!boothMode && (
-                  <label className="zt-btn-secondary flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold cursor-pointer text-center">
-                    <span>📁</span>
-                    <span>{isHindi ? "फोटो अपलोड" : "Upload Photo"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(event) => {
-                        const file = event.currentTarget.files?.[0];
-                        if (file) {
-                          setSelectedModalScene(c.id as "modi" | "yogi" | "bjp");
-                          setBoothOpen(true);
-                          void choosePhoto(file);
-                        }
-                        event.currentTarget.value = "";
+                {boothMode ? (
+                  <>
+                    <Link
+                      to="/experience/$scene"
+                      params={{ scene: c.id }}
+                      search={{ mode: "booth" }}
+                      onClick={() => localStorage.setItem("zuitar.deviceMode", "booth")}
+                      className="zt-btn-primary flex items-center justify-center gap-1.5 py-3 text-xs sm:text-sm font-bold text-center shadow-lg"
+                    >
+                      <span>🤳</span>
+                      <span>{isHindi ? "लाइव सेल्फ़ी लें" : "Take Live Selfie"}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedModalScene(c.id as "modi" | "yogi" | "bjp");
+                        setBoothOpen(true);
                       }}
-                    />
-                  </label>
+                      className="zt-btn-secondary flex items-center justify-center gap-1.5 py-3 text-xs sm:text-sm font-bold text-center shadow-md border border-amber-500/40"
+                    >
+                      <span>✨</span>
+                      <span>{isHindi ? "AI फोटो बनाएं" : "AI Photo Studio"}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/experience/$scene"
+                      params={{ scene: c.id }}
+                      onClick={() => localStorage.setItem("zuitar.deviceMode", "personal")}
+                      className="zt-btn-primary flex items-center justify-center gap-1 py-2 text-xs font-semibold text-center"
+                    >
+                      <span>🤳</span>
+                      <span>{isHindi ? "लाइव सेल्फ़ी" : "Live Selfie"}</span>
+                    </Link>
+                    {c.id !== "bjp" ? (
+                      <Link
+                        to="/experience/$scene"
+                        params={{ scene: c.id }}
+                        search={{ room: "1" }}
+                        onClick={() => localStorage.setItem("zuitar.deviceMode", "personal")}
+                        className="zt-btn-secondary flex items-center justify-center gap-1 py-2 text-xs font-semibold text-center border border-amber-500/30"
+                      >
+                        <span>🏛️</span>
+                        <span>{isHindi ? "3D रूम" : "3D Room"}</span>
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/experience/$scene"
+                        params={{ scene: c.id }}
+                        onClick={() => localStorage.setItem("zuitar.deviceMode", "personal")}
+                        className="zt-btn-secondary flex items-center justify-center gap-1 py-2 text-xs font-semibold text-center"
+                      >
+                        <span>🪷</span>
+                        <span>{isHindi ? "कमल लुक" : "Lotus Look"}</span>
+                      </Link>
+                    )}
+                    <label className="zt-btn-ghost border border-border flex items-center justify-center gap-1 py-2 text-xs font-semibold cursor-pointer text-center">
+                      <span>📁</span>
+                      <span>{isHindi ? "अपलोड" : "Upload"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          if (file) {
+                            setSelectedModalScene(c.id as "modi" | "yogi" | "bjp");
+                            setBoothOpen(true);
+                            void choosePhoto(file);
+                          }
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  </>
                 )}
-
-                <Link
-                  to="/experience/$scene"
-                  params={{ scene: c.id }}
-                  search={boothMode ? { mode: "booth" } : undefined}
-                  onClick={() =>
-                    localStorage.setItem("zuitar.deviceMode", boothMode ? "booth" : "personal")
-                  }
-                  className="zt-btn-ghost border border-border flex items-center justify-center gap-1 py-2.5 text-xs sm:text-sm font-semibold text-center"
-                >
-                  <span>🎥</span>
-                  <span>{isHindi ? "वीडियो" : "Video"}</span>
-                </Link>
               </div>
             </div>
           </div>
@@ -752,12 +783,12 @@ function Home() {
                         {selectedModalScene === "yogi" && (
                           <>
                             {[
-                              { id: "selfie", icon: "🤳", label: { en: "Selfie with Yogi", hi: "योगी जी से सेल्फी" } },
-                              { id: "handshake", icon: "🤝", label: { en: "Handshake with Yogi", hi: "योगी जी से हाथ मिलाएँ" } },
-                              { id: "hug", icon: "🫂", label: { en: "Hug with Yogi", hi: "योगी जी से गले मिलें" } },
-                              { id: "meeting", icon: "💬", label: { en: "Meeting with Yogi", hi: "योगी जी से मुलाक़ात" } },
-                              { id: "scarf", icon: "🧣", label: { en: "Saffron Scarf", hi: "अंगवस्त्र सम्मान" } },
-                              { id: "gift", icon: "🎁", label: { en: "Gift / Memento", hi: "उपहार / स्मृति चिन्ह भेंट" } },
+                              { id: "selfie", icon: "🤳", label: { en: "Selfie with CM Yogi Ji", hi: "सीएम योगी जी से सेल्फ़ी" } },
+                              { id: "handshake", icon: "🤝", label: { en: "Handshake with CM Yogi Ji", hi: "सीएम योगी जी से हाथ मिलाएँ" } },
+                              { id: "hug", icon: "🫂", label: { en: "Hug with CM Yogi Ji", hi: "सीएम योगी जी से गले मिलें" } },
+                              { id: "meeting", icon: "💬", label: { en: "Meeting with CM Yogi Ji", hi: "सीएम योगी जी से मुलाक़ात" } },
+                              { id: "scarf", icon: "🧣", label: { en: "Saffron Scarf Honor", hi: "सीएम योगी जी द्वारा अंगवस्त्र सम्मान" } },
+                              { id: "gift", icon: "🎁", label: { en: "Gift / Memento", hi: "सीएम योगी जी को उपहार / स्मृति चिन्ह भेंट" } },
                             ].map((opt) => (
                               <button
                                 key={opt.id}

@@ -48,6 +48,9 @@ export type SceneRuntime = {
   }): void;
   reset?(): void;
   dispose?(): void;
+  setSide?(side: -1 | 1): void;
+  toggleSide?(): -1 | 1;
+  getSide?(): -1 | 1;
   /** true when no authorized/approved asset is available (nothing is rendered; UI shows setup message) */
   standIn?: boolean;
 };
